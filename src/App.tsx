@@ -3,9 +3,11 @@ import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { TradeProvider } from "@/contexts/TradeContext";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Trade from "./pages/Trade";
+import TradeHistory from "./pages/TradeHistory";
 import WalletPage from "./pages/WalletPage";
 import DepositPage from "./pages/DepositPage";
 import WithdrawPage from "./pages/WithdrawPage";
@@ -35,6 +37,7 @@ const AppRoutes = () => (
     <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
     <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
     <Route path="/trade" element={<ProtectedRoute><Trade /></ProtectedRoute>} />
+    <Route path="/history" element={<ProtectedRoute><TradeHistory /></ProtectedRoute>} />
     <Route path="/wallet" element={<ProtectedRoute><WalletPage /></ProtectedRoute>} />
     <Route path="/deposit" element={<ProtectedRoute><DepositPage /></ProtectedRoute>} />
     <Route path="/withdraw" element={<ProtectedRoute><WithdrawPage /></ProtectedRoute>} />
@@ -50,7 +53,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <TradeProvider>
+            <AppRoutes />
+          </TradeProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
