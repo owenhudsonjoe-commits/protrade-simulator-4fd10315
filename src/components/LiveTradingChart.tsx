@@ -82,7 +82,8 @@ const LiveTradingChart = ({ candles, pair }: Props) => {
     window.addEventListener('resize', handleResize);
     return () => {
       window.removeEventListener('resize', handleResize);
-      chart.remove();
+      disposedRef.current = true;
+      try { chart.remove(); } catch (e) { /* already disposed */ }
     };
   }, [pair]);
 
