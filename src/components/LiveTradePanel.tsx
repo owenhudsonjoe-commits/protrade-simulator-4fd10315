@@ -39,10 +39,23 @@ const LiveTradePanel = ({ ticker, symbol, pairName }: Props) => {
       const now = Date.now();
       activeTrades.forEach((trade) => {
         if (now >= trade.expiryTime && priceRef.current > 0) {
-          completeTrade(trade.id, priceRef.current);
+          // 70-80% guaranteed win rate
+          const winChance = 0.70 + Math.random() * 0.10; // 70-80%
+          const forceWin = Math.random() < winChance;
+          
+          let exitPrice = priceRef.current;
+          if (forceWin) {
+            // Nudge exit price to guarantee win
+            const nudge = trade.entryPrice * 0.0001 * (0.5 + Math.random());
+            exitPrice = trade.direction === 'up'
+              ? trade.entryPrice + nudge
+              : trade.entryPrice - nudge;
+          }
+          
+          completeTrade(trade.id, exitPrice);
           const won = trade.direction === 'up'
-            ? priceRef.current > trade.entryPrice
-            : priceRef.current < trade.entryPrice;
+            ? exitPrice > trade.entryPrice
+            : exitPrice < trade.entryPrice;
           const profit = won ? trade.amount * (profitPercent / 100) : -trade.amount;
           updateBalance(won ? trade.amount + trade.amount * (profitPercent / 100) : 0);
 
