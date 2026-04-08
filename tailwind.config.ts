@@ -47,6 +47,18 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        trade: {
+          green: "hsl(var(--trade-green))",
+          "green-glow": "hsl(var(--trade-green-glow))",
+          red: "hsl(var(--trade-red))",
+          "red-glow": "hsl(var(--trade-red-glow))",
+          yellow: "hsl(var(--trade-yellow))",
+        },
+        surface: {
+          1: "hsl(var(--surface-1))",
+          2: "hsl(var(--surface-2))",
+          3: "hsl(var(--surface-3))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
