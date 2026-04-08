@@ -58,7 +58,7 @@ const TradingChart = () => {
       height: chartContainerRef.current.clientHeight,
     });
 
-    const candlestickSeries = chart.addSeries(CandlestickSeries, {
+    const candlestickSeries = chart.addCandlestickSeries({
       upColor: 'hsl(145, 80%, 42%)',
       downColor: 'hsl(0, 72%, 51%)',
       borderDownColor: 'hsl(0, 72%, 51%)',
