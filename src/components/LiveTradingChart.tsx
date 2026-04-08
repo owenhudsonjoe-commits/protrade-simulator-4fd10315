@@ -11,13 +11,15 @@ const LiveTradingChart = ({ candles, pair }: Props) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const seriesRef = useRef<any>(null);
+  const disposedRef = useRef(false);
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
-    if (chartRef.current) {
-      chartRef.current.remove();
+    if (chartRef.current && !disposedRef.current) {
+      try { chartRef.current.remove(); } catch (e) { /* already disposed */ }
     }
+    disposedRef.current = false;
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
