@@ -109,18 +109,12 @@ const LiveTradingChart = ({ candles, pair, indicators }: Props) => {
   const chartRef = useRef<any>(null);
   const seriesRef = useRef<any>(null);
   const indicatorSeriesRef = useRef<any>({});
-  const disposedRef = useRef(false);
 
-  // Create chart
   useEffect(() => {
-    if (!chartContainerRef.current) return;
+    const container = chartContainerRef.current;
+    if (!container) return;
 
-    if (chartRef.current && !disposedRef.current) {
-      try { chartRef.current.remove(); } catch (e) { /* */ }
-    }
-    disposedRef.current = false;
-
-    const chart = createChart(chartContainerRef.current, {
+    const chart = createChart(container, {
       layout: {
         background: { type: ColorType.Solid, color: '#0b0e11' },
         textColor: '#848e9c',
@@ -136,19 +130,28 @@ const LiveTradingChart = ({ candles, pair, indicators }: Props) => {
       },
       rightPriceScale: {
         borderColor: '#1b1e23',
-        scaleMargins: { top: 0.05, bottom: 0.2 },
+        scaleMargins: { top: 0.08, bottom: 0.24 },
       },
       timeScale: {
         borderColor: '#1b1e23',
         timeVisible: true,
         secondsVisible: false,
-        rightOffset: 5,
-        barSpacing: 8,
+        rightOffset: 6,
+        barSpacing: 7,
       },
-      handleScroll: { vertTouchDrag: false },
-      handleScale: { axisPressedMouseMove: true },
-      width: chartContainerRef.current.clientWidth,
-      height: chartContainerRef.current.clientHeight,
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: false,
+      },
+      handleScale: {
+        mouseWheel: true,
+        pinch: true,
+        axisPressedMouseMove: true,
+      },
+      width: container.clientWidth || 360,
+      height: container.clientHeight || 320,
     });
 
     const candlestickSeries = chart.addCandlestickSeries({
@@ -158,129 +161,98 @@ const LiveTradingChart = ({ candles, pair, indicators }: Props) => {
       borderUpColor: '#0ecb81',
       wickDownColor: '#f6465d',
       wickUpColor: '#0ecb81',
+      priceLineVisible: true,
+      lastValueVisible: true,
     });
 
     const volumeSeries = chart.addHistogramSeries({
       priceFormat: { type: 'volume' },
       priceScaleId: 'volume',
+      lastValueVisible: false,
+      priceLineVisible: false,
     });
+
     chart.priceScale('volume').applyOptions({
-      scaleMargins: { top: 0.85, bottom: 0 },
+      scaleMargins: { top: 0.82, bottom: 0 },
     });
 
     chartRef.current = chart;
     seriesRef.current = { candles: candlestickSeries, volume: volumeSeries };
     indicatorSeriesRef.current = {};
 
-    const handleResize = () => {
-      if (chartContainerRef.current && !disposedRef.current) {
-        try {
-          chart.applyOptions({
-            width: chartContainerRef.current.clientWidth,
-            height: chartContainerRef.current.clientHeight,
-          });
-        } catch (e) { /* */ }
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      if (width > 0 && height > 0) {
+        chart.applyOptions({ width, height });
+        chart.timeScale().fitContent();
       }
-    };
-    window.addEventListener('resize', handleResize);
+    });
+
+    resizeObserver.observe(container);
+
     return () => {
-      window.removeEventListener('resize', handleResize);
-      disposedRef.current = true;
-      try { chart.remove(); } catch (e) { /* */ }
+      resizeObserver.disconnect();
+      Object.values(indicatorSeriesRef.current).forEach((s: any) => {
+        try { chart.removeSeries(s); } catch {}
+      });
+      try { chart.remove(); } catch {}
+      chartRef.current = null;
+      seriesRef.current = null;
+      indicatorSeriesRef.current = {};
     };
   }, [pair]);
 
-  // Update data & indicators
   useEffect(() => {
-    if (!seriesRef.current || !chartRef.current || candles.length === 0 || disposedRef.current) return;
+    if (!seriesRef.current || !chartRef.current || candles.length === 0) return;
+
+    const candleData = candles.map((c) => ({
+      time: c.time as any,
+      open: c.open,
+      high: c.high,
+      low: c.low,
+      close: c.close,
+    }));
+
+    const volumeData = candles.map((c) => ({
+      time: c.time as any,
+      value: c.volume,
+      color: c.close >= c.open ? 'rgba(14, 203, 129, 0.24)' : 'rgba(246, 70, 93, 0.24)',
+    }));
 
     try {
-      const candleData = candles.map((c) => ({
-        time: c.time as any, open: c.open, high: c.high, low: c.low, close: c.close,
-      }));
-      const volumeData = candles.map((c) => ({
-        time: c.time as any, value: c.volume,
-        color: c.close >= c.open ? 'rgba(14, 203, 129, 0.2)' : 'rgba(246, 70, 93, 0.2)',
-      }));
-
       seriesRef.current.candles.setData(candleData);
       seriesRef.current.volume.setData(volumeData);
 
-      // Remove old indicator series
       Object.values(indicatorSeriesRef.current).forEach((s: any) => {
-        try { chartRef.current.removeSeries(s); } catch (e) { /* */ }
+        try { chartRef.current.removeSeries(s); } catch {}
       });
       indicatorSeriesRef.current = {};
 
-      // MA indicators
       if (indicators.includes('MA7')) {
-        const ma = chartRef.current.addLineSeries({
-          color: '#f0b90b', lineWidth: 1, priceLineVisible: false, lastValueVisible: false,
-        });
-        ma.setData(calcSMA(candles, 7));
-        indicatorSeriesRef.current.ma7 = ma;
+        const ma7 = chartRef.current.addLineSeries({ color: '#f0b90b', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+        ma7.setData(calcSMA(candles, 7));
+        indicatorSeriesRef.current.ma7 = ma7;
       }
       if (indicators.includes('MA25')) {
-        const ma = chartRef.current.addLineSeries({
-          color: '#e040fb', lineWidth: 1, priceLineVisible: false, lastValueVisible: false,
-        });
-        ma.setData(calcSMA(candles, 25));
-        indicatorSeriesRef.current.ma25 = ma;
+        const ma25 = chartRef.current.addLineSeries({ color: '#e040fb', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+        ma25.setData(calcSMA(candles, 25));
+        indicatorSeriesRef.current.ma25 = ma25;
       }
       if (indicators.includes('MA99')) {
-        const ma = chartRef.current.addLineSeries({
-          color: '#00bcd4', lineWidth: 1, priceLineVisible: false, lastValueVisible: false,
-        });
-        ma.setData(calcSMA(candles, 99));
-        indicatorSeriesRef.current.ma99 = ma;
+        const ma99 = chartRef.current.addLineSeries({ color: '#00bcd4', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+        ma99.setData(calcSMA(candles, 99));
+        indicatorSeriesRef.current.ma99 = ma99;
       }
 
-      // RSI
-      if (indicators.includes('RSI')) {
-        const rsiData = calcRSI(candles);
-        const rsiSeries = chartRef.current.addLineSeries({
-          color: '#f0b90b', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: true,
-          priceScaleId: 'rsi',
-        });
-        rsiSeries.setData(rsiData);
-        chartRef.current.priceScale('rsi').applyOptions({
-          scaleMargins: { top: 0.8, bottom: 0.0 },
-        });
-        indicatorSeriesRef.current.rsi = rsiSeries;
-      }
-
-      // MACD
-      if (indicators.includes('MACD')) {
-        const { macdLine, signalLine, histogram } = calcMACD(candles);
-        const macdSeries = chartRef.current.addLineSeries({
-          color: '#2962ff', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false,
-          priceScaleId: 'macd',
-        });
-        const signalSeries = chartRef.current.addLineSeries({
-          color: '#ff6d00', lineWidth: 1, priceLineVisible: false, lastValueVisible: false,
-          priceScaleId: 'macd',
-        });
-        const histSeries = chartRef.current.addHistogramSeries({
-          priceScaleId: 'macd', priceFormat: { type: 'price' },
-        });
-        macdSeries.setData(macdLine);
-        signalSeries.setData(signalLine);
-        histSeries.setData(histogram);
-        chartRef.current.priceScale('macd').applyOptions({
-          scaleMargins: { top: 0.78, bottom: 0.0 },
-        });
-        indicatorSeriesRef.current.macd = macdSeries;
-        indicatorSeriesRef.current.signal = signalSeries;
-        indicatorSeriesRef.current.hist = histSeries;
-      }
-
-      chartRef.current.timeScale().scrollToRealTime();
-    } catch (e) {
-      console.error('Chart update error:', e);
+      chartRef.current.timeScale().fitContent();
+    } catch (error) {
+      console.error('chart render failed', error);
     }
   }, [candles, indicators]);
 
-  return <div ref={chartContainerRef} className="w-full h-full" />;
+  return <div ref={chartContainerRef} className="absolute inset-0 w-full h-full" />;
 };
 
 export default LiveTradingChart;

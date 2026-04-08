@@ -143,7 +143,7 @@ const Trade = () => {
       )}
 
       {/* Chart area */}
-      <div className="flex-1 min-h-0">
+      <div className="relative shrink-0 h-[320px] sm:h-[380px] border-b border-border bg-[hsl(var(--chart-bg))] overflow-hidden">
         <LiveTradingChart candles={candles} pair={selectedSymbol} indicators={activeIndicators} />
       </div>
 
