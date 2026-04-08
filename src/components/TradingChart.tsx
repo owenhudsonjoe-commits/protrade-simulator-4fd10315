@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { createChart, ColorType, CandlestickSeries } from 'lightweight-charts';
+import { createChart, ColorType } from 'lightweight-charts';
 
 const generateCandlestickData = (count: number) => {
   const data = [];
