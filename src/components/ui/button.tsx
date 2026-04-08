@@ -15,6 +15,9 @@ const buttonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        tradeUp: "bg-trade-green text-primary-foreground hover:bg-trade-green/90 font-bold shadow-lg",
+        tradeDown: "bg-trade-red text-destructive-foreground hover:bg-trade-red/90 font-bold shadow-lg",
+        glass: "glass text-foreground hover:bg-accent/60",
       },
       size: {
         default: "h-10 px-4 py-2",
