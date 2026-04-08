@@ -6,7 +6,9 @@ import LiveTradePanel from '@/components/LiveTradePanel';
 import AssetSelector from '@/components/AssetSelector';
 import BottomNav from '@/components/BottomNav';
 import { useAuth } from '@/contexts/AuthContext';
-import { TrendingUp, TrendingDown, LogOut, ChevronDown, Wifi, WifiOff, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, LogOut, ChevronDown, Wifi, WifiOff, Clock, BarChart2 } from 'lucide-react';
+
+const indicatorOptions = ['MA7', 'MA25', 'MA99', 'RSI', 'MACD'];
 
 const timeframes = ['1m', '5m', '15m', '1h'];
 
@@ -15,6 +17,14 @@ const Trade = () => {
   const [selectedSymbol, setSelectedSymbol] = useState('BTCUSDT');
   const [showAssetSelector, setShowAssetSelector] = useState(false);
   const [allTickers, setAllTickers] = useState<Record<string, MarketTicker>>({});
+  const [activeIndicators, setActiveIndicators] = useState<string[]>(['MA7', 'MA25']);
+  const [showIndicators, setShowIndicators] = useState(false);
+
+  const toggleIndicator = (ind: string) => {
+    setActiveIndicators((prev) =>
+      prev.includes(ind) ? prev.filter((i) => i !== ind) : [...prev, ind]
+    );
+  };
 
   const { ticker, candles, isConnected, interval, setInterval } = useBinanceWebSocket(selectedSymbol);
   const pair = TRADING_PAIRS.find((p) => p.symbol === selectedSymbol)!;
