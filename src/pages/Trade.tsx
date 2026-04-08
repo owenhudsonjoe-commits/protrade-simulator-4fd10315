@@ -6,7 +6,9 @@ import LiveTradePanel from '@/components/LiveTradePanel';
 import AssetSelector from '@/components/AssetSelector';
 import BottomNav from '@/components/BottomNav';
 import { useAuth } from '@/contexts/AuthContext';
-import { TrendingUp, TrendingDown, LogOut, ChevronDown, Wifi, WifiOff, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, LogOut, ChevronDown, Wifi, WifiOff, Clock, BarChart2 } from 'lucide-react';
+
+const indicatorOptions = ['MA7', 'MA25', 'MA99', 'RSI', 'MACD'];
 
 const timeframes = ['1m', '5m', '15m', '1h'];
 
@@ -15,6 +17,14 @@ const Trade = () => {
   const [selectedSymbol, setSelectedSymbol] = useState('BTCUSDT');
   const [showAssetSelector, setShowAssetSelector] = useState(false);
   const [allTickers, setAllTickers] = useState<Record<string, MarketTicker>>({});
+  const [activeIndicators, setActiveIndicators] = useState<string[]>(['MA7', 'MA25']);
+  const [showIndicators, setShowIndicators] = useState(false);
+
+  const toggleIndicator = (ind: string) => {
+    setActiveIndicators((prev) =>
+      prev.includes(ind) ? prev.filter((i) => i !== ind) : [...prev, ind]
+    );
+  };
 
   const { ticker, candles, isConnected, interval, setInterval } = useBinanceWebSocket(selectedSymbol);
   const pair = TRADING_PAIRS.find((p) => p.symbol === selectedSymbol)!;
@@ -99,15 +109,42 @@ const Trade = () => {
             {tf}
           </button>
         ))}
+        <button
+          onClick={() => setShowIndicators(!showIndicators)}
+          className={`px-2 py-1 rounded text-xs font-medium ml-1 transition-colors ${
+            showIndicators ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-muted'
+          }`}
+        >
+          <BarChart2 className="w-3.5 h-3.5" />
+        </button>
         <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
           <span>H: <span className="text-trade-green font-mono">${ticker?.high.toLocaleString() || '---'}</span></span>
           <span>L: <span className="text-trade-red font-mono">${ticker?.low.toLocaleString() || '---'}</span></span>
         </div>
       </div>
 
+      {/* Indicator toggles */}
+      {showIndicators && (
+        <div className="flex items-center gap-1 px-3 py-1.5 bg-surface-2 border-b border-border shrink-0">
+          {indicatorOptions.map((ind) => (
+            <button
+              key={ind}
+              onClick={() => toggleIndicator(ind)}
+              className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${
+                activeIndicators.includes(ind)
+                  ? 'bg-primary/20 text-primary border border-primary/30'
+                  : 'bg-muted text-muted-foreground hover:bg-accent'
+              }`}
+            >
+              {ind}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Chart area */}
       <div className="flex-1 min-h-0">
-        <LiveTradingChart candles={candles} pair={selectedSymbol} />
+        <LiveTradingChart candles={candles} pair={selectedSymbol} indicators={activeIndicators} />
       </div>
 
       {/* Trade panel */}
