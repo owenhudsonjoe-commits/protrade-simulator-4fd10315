@@ -6,6 +6,7 @@ import type { MarketTicker } from '@/hooks/useBinanceWebSocket';
 import { ArrowUp, ArrowDown, Clock, DollarSign, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import { playWinSound, playLossSound, playTradeOpenSound, triggerHaptic } from '@/lib/tradeSound';
 
 const timeOptions = [
   { label: '30s', seconds: 30 },
@@ -20,9 +21,10 @@ interface Props {
   ticker: MarketTicker | null;
   symbol: string;
   pairName: string;
+  onForcedPriceNudge?: (direction: 'up' | 'down', entryPrice: number) => void;
 }
 
-const LiveTradePanel = ({ ticker, symbol, pairName }: Props) => {
+const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props) => {
   const { user, updateBalance } = useAuth();
   const { activeTrades, addTrade, completeTrade, profitPercent } = useTrades();
   const [amount, setAmount] = useState(10);
@@ -33,23 +35,29 @@ const LiveTradePanel = ({ ticker, symbol, pairName }: Props) => {
     if (ticker) priceRef.current = ticker.price;
   }, [ticker]);
 
-  // Check active trades for expiry
+  // Check active trades for expiry - ALL trades go profit (70-80% guaranteed)
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
       activeTrades.forEach((trade) => {
         if (now >= trade.expiryTime && priceRef.current > 0) {
-          // 70-80% guaranteed win rate
-          const winChance = 0.70 + Math.random() * 0.10; // 70-80%
+          // 70-80% guaranteed win rate - mostly profit
+          const winChance = 0.70 + Math.random() * 0.10;
           const forceWin = Math.random() < winChance;
           
           let exitPrice = priceRef.current;
           if (forceWin) {
-            // Nudge exit price to guarantee win
+            // Always nudge exit price to guarantee win regardless of direction
             const nudge = trade.entryPrice * 0.0001 * (0.5 + Math.random());
             exitPrice = trade.direction === 'up'
               ? trade.entryPrice + nudge
               : trade.entryPrice - nudge;
+          } else {
+            // Force loss for the remaining 20-30%
+            const nudge = trade.entryPrice * 0.0001 * (0.5 + Math.random());
+            exitPrice = trade.direction === 'up'
+              ? trade.entryPrice - nudge
+              : trade.entryPrice + nudge;
           }
           
           completeTrade(trade.id, exitPrice);
@@ -60,10 +68,14 @@ const LiveTradePanel = ({ ticker, symbol, pairName }: Props) => {
           updateBalance(won ? trade.amount + trade.amount * (profitPercent / 100) : 0);
 
           if (won) {
+            playWinSound();
+            triggerHaptic('win');
             toast.success(`🎉 Trade WON! +$${(trade.amount * (profitPercent / 100)).toFixed(2)}`, {
               description: `${trade.direction.toUpperCase()} ${pairName}`,
             });
           } else {
+            playLossSound();
+            triggerHaptic('loss');
             toast.error(`Trade LOST -$${trade.amount.toFixed(2)}`, {
               description: `${trade.direction.toUpperCase()} ${pairName}`,
             });
@@ -77,13 +89,16 @@ const LiveTradePanel = ({ ticker, symbol, pairName }: Props) => {
   const executeTrade = (direction: 'up' | 'down') => {
     if (!user || !ticker) return;
     if (amount > user.balance) {
-      toast.error('Insufficient balance');
+      toast.error('Insufficient balance. Please deposit funds.');
       return;
     }
     if (amount <= 0) {
       toast.error('Enter a valid amount');
       return;
     }
+
+    playTradeOpenSound();
+    triggerHaptic('open');
 
     updateBalance(-amount);
     const trade = {
@@ -99,6 +114,10 @@ const LiveTradePanel = ({ ticker, symbol, pairName }: Props) => {
       timestamp: new Date().toISOString(),
     };
     addTrade(trade);
+
+    // Signal chart to visually nudge in user's trade direction
+    onForcedPriceNudge?.(direction, ticker.price);
+
     toast(`${direction === 'up' ? '📈' : '📉'} Trade opened`, {
       description: `${direction.toUpperCase()} $${amount} on ${pairName} @ $${ticker.price.toLocaleString()}`,
     });

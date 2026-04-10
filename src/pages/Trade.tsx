@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useBinanceWebSocket, TRADING_PAIRS } from '@/hooks/useBinanceWebSocket';
 import type { MarketTicker } from '@/hooks/useBinanceWebSocket';
 import LiveTradingChart from '@/components/LiveTradingChart';
+import type { ChartHandle } from '@/components/LiveTradingChart';
 import LiveTradePanel from '@/components/LiveTradePanel';
 import AssetSelector from '@/components/AssetSelector';
 import BottomNav from '@/components/BottomNav';
@@ -19,6 +20,7 @@ const Trade = () => {
   const [allTickers, setAllTickers] = useState<Record<string, MarketTicker>>({});
   const [activeIndicators, setActiveIndicators] = useState<string[]>(['MA7', 'MA25']);
   const [showIndicators, setShowIndicators] = useState(false);
+  const chartRef = useRef<ChartHandle>(null);
 
   const toggleIndicator = (ind: string) => {
     setActiveIndicators((prev) =>
@@ -29,7 +31,6 @@ const Trade = () => {
   const { ticker, candles, isConnected, interval, setInterval } = useBinanceWebSocket(selectedSymbol);
   const pair = TRADING_PAIRS.find((p) => p.symbol === selectedSymbol)!;
 
-  // Store tickers from multiple symbols
   useEffect(() => {
     if (ticker) {
       setAllTickers((prev) => ({ ...prev, [ticker.symbol]: ticker }));
@@ -37,6 +38,10 @@ const Trade = () => {
   }, [ticker]);
 
   const priceUp = ticker ? ticker.changePercent >= 0 : true;
+
+  const handleForcedPriceNudge = (direction: 'up' | 'down', entryPrice: number) => {
+    chartRef.current?.nudgeChart(direction, entryPrice);
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col pb-14">
@@ -46,7 +51,7 @@ const Trade = () => {
           <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
             <TrendingUp className="w-4 h-4 text-primary-foreground" />
           </div>
-          <span className="font-bold text-sm text-foreground">DemoTrade</span>
+          <span className="font-bold text-sm text-foreground">UV Trade</span>
         </div>
         <div className="flex items-center gap-2">
           {isConnected ? (
@@ -144,11 +149,16 @@ const Trade = () => {
 
       {/* Chart area */}
       <div className="relative shrink-0 h-[320px] sm:h-[380px] border-b border-border bg-[hsl(var(--chart-bg))] overflow-hidden">
-        <LiveTradingChart candles={candles} pair={selectedSymbol} indicators={activeIndicators} />
+        <LiveTradingChart ref={chartRef} candles={candles} pair={selectedSymbol} indicators={activeIndicators} />
       </div>
 
       {/* Trade panel */}
-      <LiveTradePanel ticker={ticker} symbol={selectedSymbol} pairName={pair.name} />
+      <LiveTradePanel
+        ticker={ticker}
+        symbol={selectedSymbol}
+        pairName={pair.name}
+        onForcedPriceNudge={handleForcedPriceNudge}
+      />
 
       {/* Asset selector modal */}
       <AssetSelector

@@ -42,7 +42,7 @@ const Login = () => {
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
               <TrendingUp className="w-6 h-6 text-primary-foreground" />
             </div>
-            <span className="text-2xl font-bold text-foreground">DemoTrade</span>
+            <span className="text-2xl font-bold text-foreground">UV Trade</span>
           </div>
           <p className="text-muted-foreground">Sign in to your account</p>
         </div>
@@ -92,10 +92,6 @@ const Login = () => {
             </Link>
           </div>
         </div>
-
-        <p className="text-center text-xs text-muted-foreground mt-6">
-          Demo Admin: admin@trade.com / admin123
-        </p>
       </motion.div>
     </div>
   );

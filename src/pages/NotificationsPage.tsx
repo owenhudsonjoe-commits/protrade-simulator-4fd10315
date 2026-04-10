@@ -6,10 +6,9 @@ import { useAuth } from '@/contexts/AuthContext';
 const NotificationsPage = () => {
   const { user } = useAuth();
 
-  // Get notifications from deposits and withdrawals
-  const deposits = JSON.parse(localStorage.getItem('demo_deposits') || '[]')
+  const deposits = JSON.parse(localStorage.getItem('uv_deposits') || '[]')
     .filter((d: any) => d.userId === user?.id);
-  const withdrawals = JSON.parse(localStorage.getItem('demo_withdrawals') || '[]')
+  const withdrawals = JSON.parse(localStorage.getItem('uv_withdrawals') || '[]')
     .filter((w: any) => w.userId === user?.id);
 
   const notifications = [

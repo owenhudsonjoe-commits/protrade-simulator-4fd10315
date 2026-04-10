@@ -44,8 +44,7 @@ const WithdrawPage = () => {
       return;
     }
 
-    // Store withdrawal request
-    const withdrawals = JSON.parse(localStorage.getItem('demo_withdrawals') || '[]');
+    const withdrawals = JSON.parse(localStorage.getItem('uv_withdrawals') || '[]');
     withdrawals.push({
       id: `wd-${Date.now()}`,
       userId: user?.id,
@@ -56,7 +55,7 @@ const WithdrawPage = () => {
       status: 'pending',
       timestamp: new Date().toISOString(),
     });
-    localStorage.setItem('demo_withdrawals', JSON.stringify(withdrawals));
+    localStorage.setItem('uv_withdrawals', JSON.stringify(withdrawals));
     updateBalance(-amt);
     setSubmitted(true);
     toast.success('Withdrawal request submitted!');

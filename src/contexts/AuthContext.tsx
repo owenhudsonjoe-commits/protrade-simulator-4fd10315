@@ -20,18 +20,16 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Demo users storage
-const USERS_KEY = 'demo_trade_users';
-const CURRENT_USER_KEY = 'demo_trade_current_user';
+const USERS_KEY = 'uv_trade_users';
+const CURRENT_USER_KEY = 'uv_trade_current_user';
 
 const getUsers = (): Record<string, User & { password: string }> => {
   const data = localStorage.getItem(USERS_KEY);
   if (!data) {
-    // Create default admin
     const defaultUsers: Record<string, User & { password: string }> = {
-      'admin@trade.com': {
+      'admin@uvtrade.com': {
         id: 'admin-001',
-        email: 'admin@trade.com',
+        email: 'admin@uvtrade.com',
         fullName: 'Admin',
         country: 'Pakistan',
         balance: 100000,
@@ -78,7 +76,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       email,
       fullName,
       country,
-      balance: 1000, // Demo starting balance
+      balance: 0, // Real accounts start with $0, deposit required
       isAdmin: false,
       password,
     };
@@ -99,7 +97,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const updated = { ...user, balance: user.balance + amount };
     setUser(updated);
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(updated));
-    // Also update in users store
     const users = getUsers();
     if (users[user.email]) {
       users[user.email] = { ...users[user.email], balance: updated.balance };

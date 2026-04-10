@@ -8,8 +8,8 @@ export interface Trade {
   amount: number;
   entryPrice: number;
   exitPrice?: number;
-  duration: number; // seconds
-  expiryTime: number; // timestamp
+  duration: number;
+  expiryTime: number;
   status: 'active' | 'won' | 'lost';
   profit?: number;
   timestamp: string;
@@ -25,8 +25,8 @@ interface TradeContextType {
 }
 
 const TradeContext = createContext<TradeContextType | undefined>(undefined);
-const TRADES_KEY = 'demo_trades';
-const PROFIT_KEY = 'demo_profit_percent';
+const TRADES_KEY = 'uv_trades';
+const PROFIT_KEY = 'uv_profit_percent';
 
 export const TradeProvider = ({ children }: { children: ReactNode }) => {
   const [trades, setTrades] = useState<Trade[]>(() => {
