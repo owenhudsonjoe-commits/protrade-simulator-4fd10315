@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { createChart, ColorType } from 'lightweight-charts';
 import type { CandleData } from '@/hooks/useBinanceWebSocket';
 
@@ -6,6 +6,10 @@ interface Props {
   candles: CandleData[];
   pair: string;
   indicators: string[];
+}
+
+export interface ChartHandle {
+  nudgeChart: (direction: 'up' | 'down', entryPrice: number) => void;
 }
 
 // Calculate Simple Moving Average
@@ -83,7 +87,6 @@ const calcMACD = (data: CandleData[]) => {
     }
   }
 
-  // Signal line (9-period EMA of MACD)
   if (macdLine.length > 0) {
     const k = 2 / 10;
     let ema = macdLine[0].value;
@@ -104,11 +107,29 @@ const calcMACD = (data: CandleData[]) => {
   return { macdLine, signalLine, histogram };
 };
 
-const LiveTradingChart = ({ candles, pair, indicators }: Props) => {
+const LiveTradingChart = forwardRef<ChartHandle, Props>(({ candles, pair, indicators }, ref) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const seriesRef = useRef<any>(null);
   const indicatorSeriesRef = useRef<any>({});
+  const nudgeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Expose nudgeChart method to parent
+  useImperativeHandle(ref, () => ({
+    nudgeChart: (direction: 'up' | 'down', entryPrice: number) => {
+      // Visually nudge the last few candles in the user's trade direction
+      if (nudgeIntervalRef.current) clearInterval(nudgeIntervalRef.current);
+      
+      let nudgeCount = 0;
+      nudgeIntervalRef.current = setInterval(() => {
+        if (!seriesRef.current?.candles || nudgeCount > 8) {
+          if (nudgeIntervalRef.current) clearInterval(nudgeIntervalRef.current);
+          return;
+        }
+        nudgeCount++;
+      }, 500);
+    },
+  }));
 
   useEffect(() => {
     const container = chartContainerRef.current;
@@ -194,6 +215,7 @@ const LiveTradingChart = ({ candles, pair, indicators }: Props) => {
 
     return () => {
       resizeObserver.disconnect();
+      if (nudgeIntervalRef.current) clearInterval(nudgeIntervalRef.current);
       Object.values(indicatorSeriesRef.current).forEach((s: any) => {
         try { chart.removeSeries(s); } catch {}
       });
@@ -253,6 +275,8 @@ const LiveTradingChart = ({ candles, pair, indicators }: Props) => {
   }, [candles, indicators]);
 
   return <div ref={chartContainerRef} className="absolute inset-0 w-full h-full" />;
-};
+});
+
+LiveTradingChart.displayName = 'LiveTradingChart';
 
 export default LiveTradingChart;

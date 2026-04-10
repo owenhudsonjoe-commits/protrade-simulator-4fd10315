@@ -1,15 +1,23 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { useTrades } from '@/contexts/TradeContext';
 import BottomNav from '@/components/BottomNav';
 import { Wallet, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const WalletPage = () => {
   const { user } = useAuth();
+  const { trades } = useTrades();
   const balance = user?.balance || 0;
-  // Demo P&L calculation
-  const invested = 1000;
-  const pnl = balance - invested;
-  const pnlPercent = ((pnl / invested) * 100).toFixed(1);
+  
+  const myTrades = trades.filter((t) => t.userId === user?.id && t.status !== 'active');
+  const totalDeposited = JSON.parse(localStorage.getItem('uv_deposits') || '[]')
+    .filter((d: any) => d.userId === user?.id && d.status === 'approved')
+    .reduce((s: number, d: any) => s + d.amount, 0);
+  
+  const pnl = balance - totalDeposited;
+  const pnlPercent = totalDeposited > 0 ? ((pnl / totalDeposited) * 100).toFixed(1) : '0';
+  const totalWins = myTrades.filter((t) => t.status === 'won').length;
+  const winRate = myTrades.length > 0 ? ((totalWins / myTrades.length) * 100).toFixed(1) : '0';
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -29,19 +37,24 @@ const WalletPage = () => {
         >
           <p className="text-sm text-muted-foreground mb-1">Total Balance</p>
           <p className="text-3xl font-bold font-mono text-foreground">${balance.toFixed(2)}</p>
-          <div className={`inline-flex items-center gap-1 mt-2 text-sm font-medium ${pnl >= 0 ? 'text-trade-green' : 'text-trade-red'}`}>
-            {pnl >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-            {pnl >= 0 ? '+' : ''}{pnlPercent}% ({pnl >= 0 ? '+' : ''}${pnl.toFixed(2)})
-          </div>
+          {totalDeposited > 0 && (
+            <div className={`inline-flex items-center gap-1 mt-2 text-sm font-medium ${pnl >= 0 ? 'text-trade-green' : 'text-trade-red'}`}>
+              {pnl >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+              {pnl >= 0 ? '+' : ''}{pnlPercent}% ({pnl >= 0 ? '+' : ''}${pnl.toFixed(2)})
+            </div>
+          )}
+          {balance === 0 && (
+            <p className="text-xs text-muted-foreground mt-2">Deposit funds to start trading</p>
+          )}
         </motion.div>
 
         {/* Stats grid */}
         <div className="grid grid-cols-2 gap-3">
           {[
             { label: 'Active Balance', value: `$${balance.toFixed(2)}`, icon: DollarSign },
-            { label: 'Demo Equity', value: `$${(balance * 1.0).toFixed(2)}`, icon: Wallet },
-            { label: 'Total Trades', value: '0', icon: TrendingUp },
-            { label: 'Win Rate', value: '0%', icon: TrendingUp },
+            { label: 'Total Deposited', value: `$${totalDeposited.toFixed(2)}`, icon: Wallet },
+            { label: 'Total Trades', value: String(myTrades.length), icon: TrendingUp },
+            { label: 'Win Rate', value: `${winRate}%`, icon: TrendingUp },
           ].map((stat, i) => (
             <motion.div
               key={stat.label}

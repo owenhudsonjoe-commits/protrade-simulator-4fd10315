@@ -24,25 +24,25 @@ const AdminPanel = () => {
   }, []);
 
   const loadData = () => {
-    setDeposits(JSON.parse(localStorage.getItem('demo_deposits') || '[]'));
-    setWithdrawals(JSON.parse(localStorage.getItem('demo_withdrawals') || '[]'));
-    const allUsers = JSON.parse(localStorage.getItem('demo_trade_users') || '{}');
+    setDeposits(JSON.parse(localStorage.getItem('uv_deposits') || '[]'));
+    setWithdrawals(JSON.parse(localStorage.getItem('uv_withdrawals') || '[]'));
+    const allUsers = JSON.parse(localStorage.getItem('uv_trade_users') || '{}');
     setUsers(Object.values(allUsers));
   };
 
   const approveDeposit = (id: string) => {
     const updated = deposits.map((d) => {
       if (d.id === id && d.status === 'pending') {
-        const allUsers = JSON.parse(localStorage.getItem('demo_trade_users') || '{}');
+        const allUsers = JSON.parse(localStorage.getItem('uv_trade_users') || '{}');
         if (allUsers[d.userEmail]) {
           allUsers[d.userEmail].balance += d.amount;
-          localStorage.setItem('demo_trade_users', JSON.stringify(allUsers));
+          localStorage.setItem('uv_trade_users', JSON.stringify(allUsers));
         }
         return { ...d, status: 'approved' };
       }
       return d;
     });
-    localStorage.setItem('demo_deposits', JSON.stringify(updated));
+    localStorage.setItem('uv_deposits', JSON.stringify(updated));
     setDeposits(updated);
     toast.success('Deposit approved!');
     loadData();
@@ -50,14 +50,14 @@ const AdminPanel = () => {
 
   const rejectDeposit = (id: string) => {
     const updated = deposits.map((d) => d.id === id ? { ...d, status: 'rejected' } : d);
-    localStorage.setItem('demo_deposits', JSON.stringify(updated));
+    localStorage.setItem('uv_deposits', JSON.stringify(updated));
     setDeposits(updated);
     toast.success('Deposit rejected');
   };
 
   const approveWithdrawal = (id: string) => {
     const updated = withdrawals.map((w) => w.id === id ? { ...w, status: 'approved' } : w);
-    localStorage.setItem('demo_withdrawals', JSON.stringify(updated));
+    localStorage.setItem('uv_withdrawals', JSON.stringify(updated));
     setWithdrawals(updated);
     toast.success('Withdrawal approved!');
   };
@@ -65,16 +65,16 @@ const AdminPanel = () => {
   const rejectWithdrawal = (id: string) => {
     const updated = withdrawals.map((w) => {
       if (w.id === id && w.status === 'pending') {
-        const allUsers = JSON.parse(localStorage.getItem('demo_trade_users') || '{}');
+        const allUsers = JSON.parse(localStorage.getItem('uv_trade_users') || '{}');
         if (allUsers[w.userEmail]) {
           allUsers[w.userEmail].balance += w.amount;
-          localStorage.setItem('demo_trade_users', JSON.stringify(allUsers));
+          localStorage.setItem('uv_trade_users', JSON.stringify(allUsers));
         }
         return { ...w, status: 'rejected' };
       }
       return w;
     });
-    localStorage.setItem('demo_withdrawals', JSON.stringify(updated));
+    localStorage.setItem('uv_withdrawals', JSON.stringify(updated));
     setWithdrawals(updated);
     toast.success('Withdrawal rejected, balance refunded');
     loadData();
@@ -89,7 +89,6 @@ const AdminPanel = () => {
     );
   }
 
-  // Analytics data
   const totalDeposits = deposits.filter((d) => d.status === 'approved').reduce((s, d) => s + d.amount, 0);
   const totalWithdrawals = withdrawals.filter((w) => w.status === 'approved').reduce((s, w) => s + w.amount, 0);
   const totalTrades = trades.length;
@@ -196,6 +195,12 @@ const AdminPanel = () => {
                   </div>
                   <p className="text-lg font-bold font-mono text-foreground">${d.amount}</p>
                   {d.pkrAmount && <p className="text-xs text-muted-foreground">PKR {d.pkrAmount}</p>}
+                  {d.ocrResult && (
+                    <div className="mt-2 p-2 bg-muted rounded text-xs text-muted-foreground">
+                      <p className="font-semibold text-foreground mb-1">OCR Verification:</p>
+                      <p>{d.ocrResult}</p>
+                    </div>
+                  )}
                   {d.status === 'pending' && (
                     <div className="flex gap-2 mt-3">
                       <Button size="sm" onClick={() => approveDeposit(d.id)} className="flex-1 h-8"><Check className="w-3 h-3 mr-1" /> Approve</Button>

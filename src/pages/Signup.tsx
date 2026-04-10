@@ -28,8 +28,8 @@ const Signup = () => {
     setLoading(true);
     try {
       await signup(fullName, email, password, country);
-      toast.success('Account created! You have $1,000 demo balance.');
-      navigate('/trade');
+      toast.success('Account created! Deposit funds to start trading.');
+      navigate('/deposit');
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -50,7 +50,7 @@ const Signup = () => {
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
               <TrendingUp className="w-6 h-6 text-primary-foreground" />
             </div>
-            <span className="text-2xl font-bold text-foreground">DemoTrade</span>
+            <span className="text-2xl font-bold text-foreground">UV Trade</span>
           </div>
           <p className="text-muted-foreground">Create your trading account</p>
         </div>
