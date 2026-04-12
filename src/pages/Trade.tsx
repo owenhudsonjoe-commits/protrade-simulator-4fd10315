@@ -7,10 +7,10 @@ import LiveTradePanel from '@/components/LiveTradePanel';
 import AssetSelector from '@/components/AssetSelector';
 import BottomNav from '@/components/BottomNav';
 import { useAuth } from '@/contexts/AuthContext';
-import { TrendingUp, TrendingDown, LogOut, ChevronDown, Wifi, WifiOff, Clock, BarChart2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, ChevronDown, Wallet, Clock, BarChart2, Activity } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const indicatorOptions = ['MA7', 'MA25', 'MA99', 'RSI', 'MACD'];
-
 const timeframes = ['1m', '5m', '15m', '1h'];
 
 const Trade = () => {
@@ -44,112 +44,141 @@ const Trade = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col pb-14">
-      {/* Top header bar */}
-      <header className="flex items-center justify-between px-3 py-2 border-b border-border bg-surface-1 shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-            <TrendingUp className="w-4 h-4 text-primary-foreground" />
-          </div>
-          <span className="font-bold text-sm text-foreground">UV Trade</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {isConnected ? (
-            <Wifi className="w-3.5 h-3.5 text-trade-green" />
-          ) : (
-            <WifiOff className="w-3.5 h-3.5 text-trade-red" />
-          )}
-          <div className="bg-muted rounded-lg px-2.5 py-1">
-            <span className="font-mono text-sm font-bold text-primary">
-              ${user?.balance.toFixed(2)}
-            </span>
-          </div>
-          <button onClick={logout} className="text-muted-foreground hover:text-foreground p-1">
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
-      </header>
-
-      {/* Asset ticker bar */}
-      <div className="flex items-center justify-between px-3 py-2 bg-surface-2 border-b border-border shrink-0">
+    <div className="min-h-screen bg-background flex flex-col pb-16">
+      {/* Compact premium header */}
+      <header className="flex items-center justify-between px-4 py-2.5 bg-surface-1/80 backdrop-blur-xl border-b border-border/50 shrink-0 z-10">
         <button
           onClick={() => setShowAssetSelector(true)}
-          className="flex items-center gap-2 hover:bg-muted rounded-lg px-2 py-1 transition-colors"
+          className="flex items-center gap-2.5 group"
         >
-          <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center text-sm font-bold text-primary group-hover:border-primary/40 transition-colors">
             {pair.icon}
           </div>
           <div>
             <div className="flex items-center gap-1">
               <span className="text-sm font-bold text-foreground">{pair.name}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              {isConnected && (
+                <span className="w-1.5 h-1.5 rounded-full bg-primary live-dot" />
+              )}
+              <span className="text-[10px] text-muted-foreground">{isConnected ? 'Live' : 'Offline'}</span>
             </div>
           </div>
         </button>
 
+        {/* Price display */}
         <div className="text-right">
-          <p className={`text-lg font-mono font-bold ${priceUp ? 'text-trade-green' : 'text-trade-red'}`}>
-            ${ticker?.price.toLocaleString(undefined, { minimumFractionDigits: pair.decimals, maximumFractionDigits: pair.decimals }) || '---'}
-          </p>
-          <div className={`flex items-center gap-1 justify-end text-xs ${priceUp ? 'text-trade-green' : 'text-trade-red'}`}>
-            {priceUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-            {ticker ? `${priceUp ? '+' : ''}${ticker.changePercent.toFixed(2)}%` : '---'}
+          <div className="flex items-center gap-1.5 justify-end">
+            <motion.p
+              key={ticker?.price}
+              initial={{ opacity: 0.6, y: -2 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`text-lg font-mono font-bold tracking-tight ${priceUp ? 'text-trade-green' : 'text-trade-red'}`}
+            >
+              ${ticker?.price.toLocaleString(undefined, { minimumFractionDigits: pair.decimals, maximumFractionDigits: pair.decimals }) || '---'}
+            </motion.p>
+          </div>
+          <div className={`flex items-center gap-1 justify-end ${priceUp ? 'text-trade-green' : 'text-trade-red'}`}>
+            <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-semibold ${
+              priceUp ? 'bg-trade-green/10' : 'bg-trade-red/10'
+            }`}>
+              {priceUp ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
+              {ticker ? `${priceUp ? '+' : ''}${ticker.changePercent.toFixed(2)}%` : '---'}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Timeframe selector */}
-      <div className="flex items-center gap-1 px-3 py-1.5 bg-surface-1 border-b border-border shrink-0">
-        <Clock className="w-3 h-3 text-muted-foreground mr-1" />
-        {timeframes.map((tf) => (
-          <button
-            key={tf}
-            onClick={() => setInterval(tf)}
-            className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-              interval === tf
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted'
-            }`}
-          >
-            {tf}
-          </button>
-        ))}
+        {/* Balance chip */}
+        <div className="flex items-center gap-1.5 bg-surface-2/80 border border-border/50 rounded-xl px-3 py-1.5">
+          <Wallet className="w-3.5 h-3.5 text-primary" />
+          <span className="font-mono text-sm font-bold text-foreground">
+            ${user?.balance.toFixed(2)}
+          </span>
+        </div>
+      </header>
+
+      {/* Timeframe & controls bar */}
+      <div className="flex items-center gap-1 px-3 py-1.5 bg-surface-1/50 backdrop-blur-sm border-b border-border/30 shrink-0">
+        <div className="flex items-center bg-surface-2/60 rounded-lg p-0.5">
+          {timeframes.map((tf) => (
+            <button
+              key={tf}
+              onClick={() => setInterval(tf)}
+              className={`px-3 py-1 rounded-md text-xs font-semibold transition-all duration-200 ${
+                interval === tf
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {tf}
+            </button>
+          ))}
+        </div>
+
         <button
           onClick={() => setShowIndicators(!showIndicators)}
-          className={`px-2 py-1 rounded text-xs font-medium ml-1 transition-colors ${
-            showIndicators ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-muted'
+          className={`p-1.5 rounded-lg text-xs font-medium ml-1 transition-all ${
+            showIndicators ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-surface-2'
           }`}
         >
-          <BarChart2 className="w-3.5 h-3.5" />
+          <Activity className="w-3.5 h-3.5" />
         </button>
-        <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span>H: <span className="text-trade-green font-mono">${ticker?.high.toLocaleString() || '---'}</span></span>
-          <span>L: <span className="text-trade-red font-mono">${ticker?.low.toLocaleString() || '---'}</span></span>
+
+        <div className="ml-auto flex items-center gap-2 text-[10px] text-muted-foreground font-mono">
+          <span className="flex items-center gap-1">
+            <span className="text-muted-foreground/60">H</span>
+            <span className="text-trade-green">${ticker?.high.toLocaleString() || '---'}</span>
+          </span>
+          <span className="w-px h-3 bg-border/50" />
+          <span className="flex items-center gap-1">
+            <span className="text-muted-foreground/60">L</span>
+            <span className="text-trade-red">${ticker?.low.toLocaleString() || '---'}</span>
+          </span>
+          <span className="w-px h-3 bg-border/50" />
+          <span className="flex items-center gap-1">
+            <span className="text-muted-foreground/60">V</span>
+            <span>{ticker ? `${(ticker.volume / 1000).toFixed(0)}K` : '---'}</span>
+          </span>
         </div>
       </div>
 
       {/* Indicator toggles */}
-      {showIndicators && (
-        <div className="flex items-center gap-1 px-3 py-1.5 bg-surface-2 border-b border-border shrink-0">
-          {indicatorOptions.map((ind) => (
-            <button
-              key={ind}
-              onClick={() => toggleIndicator(ind)}
-              className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${
-                activeIndicators.includes(ind)
-                  ? 'bg-primary/20 text-primary border border-primary/30'
-                  : 'bg-muted text-muted-foreground hover:bg-accent'
-              }`}
-            >
-              {ind}
-            </button>
-          ))}
-        </div>
-      )}
+      <AnimatePresence>
+        {showIndicators && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden border-b border-border/30 bg-surface-2/30"
+          >
+            <div className="flex items-center gap-1.5 px-3 py-2">
+              <BarChart2 className="w-3 h-3 text-muted-foreground mr-0.5" />
+              {indicatorOptions.map((ind) => (
+                <button
+                  key={ind}
+                  onClick={() => toggleIndicator(ind)}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all duration-200 ${
+                    activeIndicators.includes(ind)
+                      ? 'bg-primary/15 text-primary border border-primary/25 shadow-sm'
+                      : 'bg-surface-3/50 text-muted-foreground hover:text-foreground border border-transparent'
+                  }`}
+                >
+                  {ind}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Chart area */}
-      <div className="relative shrink-0 h-[320px] sm:h-[380px] border-b border-border bg-[hsl(var(--chart-bg))] overflow-hidden">
+      {/* Chart area — full remaining space minus trade panel */}
+      <div className="relative shrink-0 h-[300px] sm:h-[360px] bg-[hsl(var(--chart-bg))] overflow-hidden">
         <LiveTradingChart ref={chartRef} candles={candles} pair={selectedSymbol} indicators={activeIndicators} />
+        {/* Chart overlay gradient at bottom */}
+        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-background/40 to-transparent pointer-events-none" />
       </div>
 
       {/* Trade panel */}
