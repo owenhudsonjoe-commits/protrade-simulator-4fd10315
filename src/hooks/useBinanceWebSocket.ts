@@ -127,30 +127,43 @@ export const useBinanceWebSocket = (symbol: string) => {
     return () => ws.close();
   }, [symbol, interval]);
 
-  // AggTrade WebSocket — fires many times per second for fast chart movement
+  // AggTrade WebSocket — throttled to ~10 updates/sec for fast but smooth chart
   useEffect(() => {
     const sym = symbol.toLowerCase();
     const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@aggTrade`);
+    let pending: { price: number; vol: number } | null = null;
+    let raf: number | null = null;
 
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      const tradePrice = parseFloat(data.p);
-      const tradeVol = parseFloat(data.q);
-
+    const flush = () => {
+      raf = null;
+      if (!pending) return;
+      const { price, vol } = pending;
+      pending = null;
       setCandles((prev) => {
         if (prev.length === 0) return prev;
         const updated = [...prev];
         const last = { ...updated[updated.length - 1] };
-        last.close = tradePrice;
-        if (tradePrice > last.high) last.high = tradePrice;
-        if (tradePrice < last.low) last.low = tradePrice;
-        last.volume += tradeVol;
+        last.close = price;
+        if (price > last.high) last.high = price;
+        if (price < last.low) last.low = price;
+        last.volume += vol;
         updated[updated.length - 1] = last;
         return updated;
       });
     };
 
-    return () => ws.close();
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      const price = parseFloat(data.p);
+      const vol = parseFloat(data.q);
+      pending = pending ? { price, vol: pending.vol + vol } : { price, vol };
+      if (!raf) raf = requestAnimationFrame(flush);
+    };
+
+    return () => {
+      ws.close();
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, [symbol]);
 
   return { ticker, candles, isConnected, interval, setInterval: setInterval_ };
