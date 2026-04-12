@@ -93,7 +93,7 @@ export const useBinanceWebSocket = (symbol: string) => {
     return () => ws.close();
   }, [symbol]);
 
-  // Candle WebSocket
+  // Candle WebSocket — kline for new candle boundaries
   useEffect(() => {
     const sym = symbol.toLowerCase();
     const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@kline_${interval}`);
@@ -126,6 +126,32 @@ export const useBinanceWebSocket = (symbol: string) => {
     wsCandleRef.current = ws;
     return () => ws.close();
   }, [symbol, interval]);
+
+  // AggTrade WebSocket — fires many times per second for fast chart movement
+  useEffect(() => {
+    const sym = symbol.toLowerCase();
+    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@aggTrade`);
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      const tradePrice = parseFloat(data.p);
+      const tradeVol = parseFloat(data.q);
+
+      setCandles((prev) => {
+        if (prev.length === 0) return prev;
+        const updated = [...prev];
+        const last = { ...updated[updated.length - 1] };
+        last.close = tradePrice;
+        if (tradePrice > last.high) last.high = tradePrice;
+        if (tradePrice < last.low) last.low = tradePrice;
+        last.volume += tradeVol;
+        updated[updated.length - 1] = last;
+        return updated;
+      });
+    };
+
+    return () => ws.close();
+  }, [symbol]);
 
   return { ticker, candles, isConnected, interval, setInterval: setInterval_ };
 };
