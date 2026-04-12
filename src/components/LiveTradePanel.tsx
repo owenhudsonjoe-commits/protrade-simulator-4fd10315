@@ -1,12 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTrades } from '@/contexts/TradeContext';
 import type { MarketTicker } from '@/hooks/useBinanceWebSocket';
-import { ArrowUp, ArrowDown, Clock, DollarSign, Zap } from 'lucide-react';
+import { ArrowUp, ArrowDown, Clock, DollarSign, Zap, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { playWinSound, playLossSound, playTradeOpenSound, triggerHaptic } from '@/lib/tradeSound';
+import { useRef } from 'react';
 
 const timeOptions = [
   { label: '30s', seconds: 30 },
@@ -35,48 +36,44 @@ const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props)
     if (ticker) priceRef.current = ticker.price;
   }, [ticker]);
 
-  // Check active trades for expiry - ALL trades go profit (70-80% guaranteed)
+  // Trade expiry logic — 70-80% guaranteed win
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
       activeTrades.forEach((trade) => {
         if (now >= trade.expiryTime && priceRef.current > 0) {
-          // 70-80% guaranteed win rate - mostly profit
           const winChance = 0.70 + Math.random() * 0.10;
           const forceWin = Math.random() < winChance;
-          
+
           let exitPrice = priceRef.current;
+          const nudge = trade.entryPrice * 0.0001 * (0.5 + Math.random());
           if (forceWin) {
-            // Always nudge exit price to guarantee win regardless of direction
-            const nudge = trade.entryPrice * 0.0001 * (0.5 + Math.random());
             exitPrice = trade.direction === 'up'
               ? trade.entryPrice + nudge
               : trade.entryPrice - nudge;
           } else {
-            // Force loss for the remaining 20-30%
-            const nudge = trade.entryPrice * 0.0001 * (0.5 + Math.random());
             exitPrice = trade.direction === 'up'
               ? trade.entryPrice - nudge
               : trade.entryPrice + nudge;
           }
-          
+
           completeTrade(trade.id, exitPrice);
           const won = trade.direction === 'up'
             ? exitPrice > trade.entryPrice
             : exitPrice < trade.entryPrice;
-          const profit = won ? trade.amount * (profitPercent / 100) : -trade.amount;
-          updateBalance(won ? trade.amount + trade.amount * (profitPercent / 100) : 0);
+          const profit = trade.amount * (profitPercent / 100);
+          updateBalance(won ? trade.amount + profit : 0);
 
           if (won) {
             playWinSound();
             triggerHaptic('win');
-            toast.success(`🎉 Trade WON! +$${(trade.amount * (profitPercent / 100)).toFixed(2)}`, {
+            toast.success(`🎉 Profit +$${profit.toFixed(2)}`, {
               description: `${trade.direction.toUpperCase()} ${pairName}`,
             });
           } else {
             playLossSound();
             triggerHaptic('loss');
-            toast.error(`Trade LOST -$${trade.amount.toFixed(2)}`, {
+            toast.error(`Loss -$${trade.amount.toFixed(2)}`, {
               description: `${trade.direction.toUpperCase()} ${pairName}`,
             });
           }
@@ -114,8 +111,6 @@ const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props)
       timestamp: new Date().toISOString(),
     };
     addTrade(trade);
-
-    // Signal chart to visually nudge in user's trade direction
     onForcedPriceNudge?.(direction, ticker.price);
 
     toast(`${direction === 'up' ? '📈' : '📉'} Trade opened`, {
@@ -124,16 +119,18 @@ const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props)
   };
 
   const myActiveTrades = activeTrades.filter((t) => t.symbol === symbol);
+  const potentialProfit = amount * profitPercent / 100;
 
   return (
-    <div className="flex flex-col gap-2.5 p-3 bg-surface-1 border-t border-border">
-      {/* Active trades indicator */}
+    <div className="flex-1 flex flex-col bg-surface-1/80 backdrop-blur-sm border-t border-border/40">
+      {/* Active trades */}
       <AnimatePresence>
         {myActiveTrades.length > 0 && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
+            className="px-3 pt-2"
           >
             {myActiveTrades.map((trade) => (
               <ActiveTradeCard key={trade.id} trade={trade} currentPrice={ticker?.price || 0} profitPercent={profitPercent} />
@@ -142,53 +139,55 @@ const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props)
         )}
       </AnimatePresence>
 
-      {/* Amount & Time row */}
-      <div className="flex gap-2">
+      {/* Compact controls */}
+      <div className="flex gap-2 px-3 pt-3 pb-1">
         {/* Amount */}
         <div className="flex-1">
-          <div className="flex items-center gap-1 mb-1.5">
+          <div className="flex items-center gap-1 mb-1">
             <DollarSign className="w-3 h-3 text-muted-foreground" />
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Amount</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">Amount</span>
           </div>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-mono">$</span>
             <input
               type="number"
               value={amount}
               onChange={(e) => setAmount(Number(e.target.value))}
-              className="w-full bg-muted border border-border rounded-lg pl-7 pr-3 py-2 text-center font-mono text-base text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full bg-surface-2 border border-border/50 rounded-xl pl-7 pr-3 py-2.5 text-center font-mono text-base font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
             />
           </div>
           <div className="flex gap-1 mt-1.5 flex-wrap">
-            {amountPresets.map((a) => (
+            {amountPresets.slice(0, 6).map((a) => (
               <button
                 key={a}
                 onClick={() => setAmount(a)}
-                className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${
-                  amount === a ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground hover:bg-accent'
+                className={`px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all ${
+                  amount === a
+                    ? 'bg-primary/20 text-primary border border-primary/30'
+                    : 'bg-surface-3/50 text-muted-foreground hover:text-foreground border border-transparent'
                 }`}
               >
-                {a}
+                ${a}
               </button>
             ))}
           </div>
         </div>
 
         {/* Duration */}
-        <div className="w-28">
-          <div className="flex items-center gap-1 mb-1.5">
+        <div className="w-[110px]">
+          <div className="flex items-center gap-1 mb-1">
             <Clock className="w-3 h-3 text-muted-foreground" />
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Duration</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">Time</span>
           </div>
           <div className="grid grid-cols-2 gap-1">
             {timeOptions.map((t) => (
               <button
                 key={t.seconds}
                 onClick={() => setSelectedTime(t.seconds)}
-                className={`py-1.5 rounded text-xs font-medium transition-colors ${
+                className={`py-2 rounded-lg text-[11px] font-bold transition-all ${
                   selectedTime === t.seconds
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-muted-foreground hover:bg-accent'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-surface-2 text-muted-foreground hover:text-foreground border border-border/30'
                 }`}
               >
                 {t.label}
@@ -198,36 +197,41 @@ const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props)
         </div>
       </div>
 
-      {/* Payout info */}
-      <div className="flex items-center justify-center gap-2 text-xs">
-        <Zap className="w-3 h-3 text-trade-yellow" />
-        <span className="text-muted-foreground">Payout: </span>
-        <span className="font-bold text-primary">{profitPercent}%</span>
-        <span className="text-muted-foreground">·</span>
-        <span className="text-muted-foreground">Profit: </span>
-        <span className="font-mono font-bold text-trade-green">${(amount * profitPercent / 100).toFixed(2)}</span>
+      {/* Payout strip */}
+      <div className="flex items-center justify-center gap-3 py-2 mx-3 my-1 rounded-xl bg-surface-2/50 border border-border/30">
+        <div className="flex items-center gap-1">
+          <Zap className="w-3 h-3 text-trade-yellow" />
+          <span className="text-[10px] text-muted-foreground font-medium">Payout</span>
+          <span className="text-xs font-bold text-primary">{profitPercent}%</span>
+        </div>
+        <span className="w-px h-3.5 bg-border/40" />
+        <div className="flex items-center gap-1">
+          <TrendingUp className="w-3 h-3 text-trade-green" />
+          <span className="text-[10px] text-muted-foreground font-medium">Profit</span>
+          <span className="text-xs font-mono font-bold text-trade-green">+${potentialProfit.toFixed(2)}</span>
+        </div>
       </div>
 
-      {/* Trade buttons */}
-      <div className="flex gap-2">
-        <Button
-          variant="tradeUp"
-          className="flex-1 h-12 text-base glow-green"
+      {/* Trade buttons — large Olymp Trade style */}
+      <div className="flex gap-2.5 px-3 pb-3">
+        <motion.button
+          whileTap={{ scale: 0.96 }}
           onClick={() => executeTrade('up')}
           disabled={!ticker || activeTrades.length >= 5}
+          className="flex-1 h-14 rounded-xl gradient-green-btn text-white font-extrabold text-base flex items-center justify-center gap-2 glow-green disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 shadow-lg"
         >
-          <ArrowUp className="w-5 h-5 mr-1" />
+          <ArrowUp className="w-5 h-5" strokeWidth={3} />
           UP
-        </Button>
-        <Button
-          variant="tradeDown"
-          className="flex-1 h-12 text-base glow-red"
+        </motion.button>
+        <motion.button
+          whileTap={{ scale: 0.96 }}
           onClick={() => executeTrade('down')}
           disabled={!ticker || activeTrades.length >= 5}
+          className="flex-1 h-14 rounded-xl gradient-red-btn text-white font-extrabold text-base flex items-center justify-center gap-2 glow-red disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 shadow-lg"
         >
-          <ArrowDown className="w-5 h-5 mr-1" />
+          <ArrowDown className="w-5 h-5" strokeWidth={3} />
           DOWN
-        </Button>
+        </motion.button>
       </div>
     </div>
   );
@@ -254,36 +258,49 @@ const ActiveTradeCard = ({ trade, currentPrice, profitPercent }: { trade: any; c
 
   const m = Math.floor(timeLeft / 60);
   const s = timeLeft % 60;
-  const progress = ((trade.duration - timeLeft) / trade.duration) * 100;
+  const progress = Math.min(100, ((trade.duration - timeLeft) / trade.duration) * 100);
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className={`rounded-lg p-2.5 mb-1.5 border ${
-        isWinning ? 'bg-trade-green/5 border-trade-green/20' : 'bg-trade-red/5 border-trade-red/20'
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`rounded-xl p-2.5 mb-1.5 border backdrop-blur-sm ${
+        isWinning
+          ? 'bg-trade-green/5 border-trade-green/15'
+          : 'bg-trade-red/5 border-trade-red/15'
       }`}
     >
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-2">
-          <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${
-            trade.direction === 'up' ? 'bg-trade-green/20 text-trade-green' : 'bg-trade-red/20 text-trade-red'
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+            trade.direction === 'up'
+              ? 'bg-trade-green/15 text-trade-green'
+              : 'bg-trade-red/15 text-trade-red'
           }`}>
-            {trade.direction === 'up' ? '▲ UP' : '▼ DOWN'}
+            {trade.direction === 'up' ? '▲ UP' : '▼ DN'}
           </span>
-          <span className="text-xs text-muted-foreground font-mono">${trade.amount}</span>
+          <span className="text-[11px] text-muted-foreground font-mono">${trade.amount}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className={`font-mono text-sm font-bold ${isWinning ? 'text-trade-green' : 'text-trade-red'}`}>
+        <div className="flex items-center gap-2.5">
+          <motion.span
+            key={potentialPnl.toFixed(2)}
+            initial={{ scale: 1.1 }}
+            animate={{ scale: 1 }}
+            className={`font-mono text-sm font-bold ${isWinning ? 'text-trade-green' : 'text-trade-red'}`}
+          >
             {potentialPnl >= 0 ? '+' : ''}{potentialPnl.toFixed(2)}
+          </motion.span>
+          <span className="font-mono text-xs font-bold text-foreground bg-surface-3/60 px-1.5 py-0.5 rounded-md">
+            {m}:{s.toString().padStart(2, '0')}
           </span>
-          <span className="font-mono text-sm font-bold text-foreground">{m}:{s.toString().padStart(2, '0')}</span>
         </div>
       </div>
-      <div className="w-full bg-muted rounded-full h-1">
-        <div
-          className={`h-1 rounded-full transition-all ${isWinning ? 'bg-trade-green' : 'bg-trade-red'}`}
-          style={{ width: `${progress}%` }}
+      <div className="w-full bg-surface-3/50 rounded-full h-1 overflow-hidden">
+        <motion.div
+          className={`h-full rounded-full ${isWinning ? 'bg-trade-green' : 'bg-trade-red'}`}
+          initial={{ width: 0 }}
+          animate={{ width: `${progress}%` }}
+          transition={{ duration: 0.3, ease: 'linear' }}
         />
       </div>
     </motion.div>
