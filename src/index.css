@@ -2,58 +2,58 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
-    --background: 220 20% 7%;
-    --foreground: 0 0% 95%;
+    --background: 225 25% 6%;
+    --foreground: 0 0% 96%;
 
-    --card: 220 18% 10%;
-    --card-foreground: 0 0% 95%;
+    --card: 225 22% 9%;
+    --card-foreground: 0 0% 96%;
 
-    --popover: 220 18% 12%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 225 22% 11%;
+    --popover-foreground: 0 0% 96%;
 
-    --primary: 145 80% 42%;
+    --primary: 152 82% 45%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 16% 16%;
-    --secondary-foreground: 0 0% 85%;
+    --secondary: 225 18% 15%;
+    --secondary-foreground: 0 0% 88%;
 
-    --muted: 220 14% 14%;
-    --muted-foreground: 220 10% 55%;
+    --muted: 225 16% 12%;
+    --muted-foreground: 225 12% 50%;
 
-    --accent: 220 16% 18%;
-    --accent-foreground: 0 0% 90%;
+    --accent: 225 18% 17%;
+    --accent-foreground: 0 0% 92%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 75% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 14% 18%;
-    --input: 220 14% 18%;
-    --ring: 145 80% 42%;
+    --border: 225 16% 14%;
+    --input: 225 16% 14%;
+    --ring: 152 82% 45%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --trade-green: 145 80% 42%;
-    --trade-green-glow: 145 80% 52%;
-    --trade-red: 0 72% 51%;
-    --trade-red-glow: 0 72% 61%;
-    --trade-yellow: 45 100% 51%;
-    --chart-bg: 220 20% 5%;
-    --surface-1: 220 18% 10%;
-    --surface-2: 220 16% 13%;
-    --surface-3: 220 14% 16%;
+    --trade-green: 152 82% 45%;
+    --trade-green-glow: 152 82% 55%;
+    --trade-red: 354 80% 55%;
+    --trade-red-glow: 354 80% 65%;
+    --trade-yellow: 42 100% 55%;
+    --chart-bg: 225 25% 4%;
+    --surface-1: 225 22% 9%;
+    --surface-2: 225 20% 11%;
+    --surface-3: 225 18% 14%;
 
-    --sidebar-background: 220 20% 7%;
-    --sidebar-foreground: 0 0% 85%;
-    --sidebar-primary: 145 80% 42%;
+    --sidebar-background: 225 25% 6%;
+    --sidebar-foreground: 0 0% 88%;
+    --sidebar-primary: 152 82% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 16% 16%;
-    --sidebar-accent-foreground: 0 0% 90%;
-    --sidebar-border: 220 14% 18%;
-    --sidebar-ring: 145 80% 42%;
+    --sidebar-accent: 225 18% 15%;
+    --sidebar-accent-foreground: 0 0% 92%;
+    --sidebar-border: 225 16% 14%;
+    --sidebar-ring: 152 82% 45%;
   }
 }
 
@@ -63,33 +63,64 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Custom scrollbar */
   ::-webkit-scrollbar {
-    width: 6px;
+    width: 4px;
   }
   ::-webkit-scrollbar-track {
-    background: hsl(var(--background));
+    background: transparent;
   }
   ::-webkit-scrollbar-thumb {
     background: hsl(var(--border));
-    border-radius: 3px;
+    border-radius: 2px;
   }
 }
 
 @layer utilities {
   .glass {
-    @apply bg-card/80 backdrop-blur-xl border border-border/50;
+    @apply backdrop-blur-xl;
+    background: linear-gradient(
+      135deg,
+      hsl(var(--card) / 0.6),
+      hsl(var(--card) / 0.3)
+    );
+    border: 1px solid hsl(var(--border) / 0.5);
   }
+
+  .glass-strong {
+    @apply backdrop-blur-2xl;
+    background: linear-gradient(
+      135deg,
+      hsl(var(--surface-1) / 0.85),
+      hsl(var(--surface-2) / 0.7)
+    );
+    border: 1px solid hsl(var(--border) / 0.4);
+  }
+
   .glow-green {
-    box-shadow: 0 0 20px hsl(var(--trade-green) / 0.3), 0 0 60px hsl(var(--trade-green) / 0.1);
+    box-shadow:
+      0 0 24px hsl(var(--trade-green) / 0.35),
+      0 0 80px hsl(var(--trade-green) / 0.1),
+      inset 0 1px 0 hsl(var(--trade-green-glow) / 0.2);
   }
   .glow-red {
-    box-shadow: 0 0 20px hsl(var(--trade-red) / 0.3), 0 0 60px hsl(var(--trade-red) / 0.1);
+    box-shadow:
+      0 0 24px hsl(var(--trade-red) / 0.35),
+      0 0 80px hsl(var(--trade-red) / 0.1),
+      inset 0 1px 0 hsl(var(--trade-red-glow) / 0.2);
   }
+  .glow-green-sm {
+    box-shadow: 0 0 12px hsl(var(--trade-green) / 0.3);
+  }
+  .glow-red-sm {
+    box-shadow: 0 0 12px hsl(var(--trade-red) / 0.3);
+  }
+
   .text-trade-green {
     color: hsl(var(--trade-green));
   }
@@ -117,4 +148,47 @@
   .font-mono {
     font-family: 'JetBrains Mono', monospace;
   }
+
+  .gradient-green-btn {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--trade-green)),
+      hsl(152 82% 38%)
+    );
+  }
+  .gradient-red-btn {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--trade-red)),
+      hsl(354 80% 45%)
+    );
+  }
+
+  .price-pulse {
+    animation: pricePulse 1.5s ease-in-out infinite;
+  }
+
+  .live-dot {
+    animation: livePulse 2s ease-in-out infinite;
+  }
+}
+
+@keyframes pricePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes livePulse {
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--trade-green) / 0.4); }
+  50% { box-shadow: 0 0 0 4px hsl(var(--trade-green) / 0); }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
