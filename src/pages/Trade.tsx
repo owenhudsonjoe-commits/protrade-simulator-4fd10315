@@ -190,7 +190,7 @@ const Trade = () => {
       <LiveTradePanel
         ticker={ticker}
         symbol={selectedSymbol}
-        pairName={pair.name}
+        pairName={pair.display}
         onForcedPriceNudge={handleForcedPriceNudge}
       />
 
