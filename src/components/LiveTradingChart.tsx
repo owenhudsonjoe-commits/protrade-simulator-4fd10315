@@ -23,12 +23,21 @@ const calcSMA = (data: CandleData[], period: number) => {
   return result;
 };
 
-// How many candles to show in the initial viewport per timeframe
+// Visible bars per timeframe — controls zoom level
+// 1m = fewest bars (zoomed in), 1h = most bars (zoomed out)
 const VISIBLE_BARS: Record<string, number> = {
-  '1m':  80,
-  '5m':  60,
-  '15m': 40,
-  '1h':  24,
+  '1m':  30,   // fully zoomed in — wide candles, short window
+  '5m':  60,   // slightly zoomed out
+  '15m': 100,  // more zoomed out
+  '1h':  160,  // fully zoomed out — narrow candles, long window
+};
+
+// Bar spacing per timeframe — wider on 1m, narrower on 1h
+const BAR_SPACING: Record<string, number> = {
+  '1m':  14,
+  '5m':  9,
+  '15m': 6,
+  '1h':  4,
 };
 
 const LiveTradingChart = forwardRef<ChartHandle, Props>(({ candles, pair, indicators, interval }, ref) => {
@@ -147,8 +156,10 @@ const LiveTradingChart = forwardRef<ChartHandle, Props>(({ candles, pair, indica
           color: c.close >= c.open ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
         })));
 
-        // Set initial visible range for this timeframe
-        const bars = VISIBLE_BARS[interval] ?? 80;
+        // Apply bar spacing and visible range for this timeframe
+        const bars    = VISIBLE_BARS[interval] ?? 80;
+        const spacing = BAR_SPACING[interval]  ?? 8;
+        chart.timeScale().applyOptions({ barSpacing: spacing });
         if (candles.length > bars) {
           chart.timeScale().setVisibleLogicalRange({ from: candles.length - bars, to: candles.length + 4 });
         } else {
