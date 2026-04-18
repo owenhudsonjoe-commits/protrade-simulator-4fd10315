@@ -34,20 +34,21 @@ export interface TradingAsset {
 }
 
 // Realistic seed prices (April 2026 reference). Slight drift simulated client-side.
+// volatility = relative std-dev per second (e.g. 0.00012 = 0.012%/s). Lower => calmer chart.
 export const TRADING_PAIRS: TradingAsset[] = [
-  { symbol: 'XAUUSD',   name: 'Gold OTC',              display: 'XAU/USD',     icon: '🥇', decimals: 2, basePrice: 2385.40, volatility: 0.0006, payout: 93, category: 'commodity' },
-  { symbol: 'USDJPY',   name: 'USD/JPY OTC',           display: 'USD/JPY',     icon: '🇺🇸', decimals: 3, basePrice: 154.215, volatility: 0.0004, payout: 93, category: 'forex' },
-  { symbol: 'AUDUSD',   name: 'AUD/USD OTC',           display: 'AUD/USD',     icon: '🇦🇺', decimals: 5, basePrice: 0.65420, volatility: 0.0004, payout: 91, category: 'forex' },
-  { symbol: 'EURUSD',   name: 'EUR/USD OTC',           display: 'EUR/USD',     icon: '🇪🇺', decimals: 5, basePrice: 1.06850, volatility: 0.0003, payout: 91, category: 'forex' },
-  { symbol: 'EUIDX',    name: 'Europe Composite Index',display: 'EU Index',    icon: '🇪🇺', decimals: 2, basePrice: 4895.20, volatility: 0.0005, payout: 91, category: 'index' },
-  { symbol: 'NZDUSD',   name: 'NZD/USD OTC',           display: 'NZD/USD',     icon: '🇳🇿', decimals: 5, basePrice: 0.59180, volatility: 0.0004, payout: 89, category: 'forex' },
-  { symbol: 'USDCHF',   name: 'USD/CHF OTC',           display: 'USD/CHF',     icon: '🇨🇭', decimals: 5, basePrice: 0.90820, volatility: 0.0004, payout: 89, category: 'forex' },
-  { symbol: 'GBPUSD',   name: 'GBP/USD OTC',           display: 'GBP/USD',     icon: '🇬🇧', decimals: 5, basePrice: 1.24560, volatility: 0.0004, payout: 87, category: 'forex' },
-  { symbol: 'USDCAD',   name: 'USD/CAD OTC',           display: 'USD/CAD',     icon: '🇨🇦', decimals: 5, basePrice: 1.37840, volatility: 0.0004, payout: 87, category: 'forex' },
-  { symbol: 'AUDCAD',   name: 'AUD/CAD OTC',           display: 'AUD/CAD',     icon: '🇦🇺', decimals: 5, basePrice: 0.90160, volatility: 0.0004, payout: 85, category: 'forex' },
-  { symbol: 'AUDJPY',   name: 'AUD/JPY OTC',           display: 'AUD/JPY',     icon: '🇦🇺', decimals: 3, basePrice: 100.910, volatility: 0.0005, payout: 85, category: 'forex' },
-  { symbol: 'AUDNZD',   name: 'AUD/NZD OTC',           display: 'AUD/NZD',     icon: '🇦🇺', decimals: 5, basePrice: 1.10560, volatility: 0.0003, payout: 85, category: 'forex' },
-  { symbol: 'ASIDX',    name: 'Asia Composite Index',  display: 'Asia Index',  icon: '🌏', decimals: 2, basePrice: 3742.80, volatility: 0.0006, payout: 85, category: 'index' },
+  { symbol: 'XAUUSD',   name: 'Gold OTC',              display: 'XAU/USD',     icon: '🥇', decimals: 2, basePrice: 2385.40, volatility: 0.00018, payout: 93, category: 'commodity' },
+  { symbol: 'USDJPY',   name: 'USD/JPY OTC',           display: 'USD/JPY',     icon: '🇺🇸', decimals: 3, basePrice: 154.215, volatility: 0.00012, payout: 93, category: 'forex' },
+  { symbol: 'AUDUSD',   name: 'AUD/USD OTC',           display: 'AUD/USD',     icon: '🇦🇺', decimals: 5, basePrice: 0.65420, volatility: 0.00012, payout: 91, category: 'forex' },
+  { symbol: 'EURUSD',   name: 'EUR/USD OTC',           display: 'EUR/USD',     icon: '🇪🇺', decimals: 5, basePrice: 1.06850, volatility: 0.00010, payout: 91, category: 'forex' },
+  { symbol: 'EUIDX',    name: 'Europe Composite Index',display: 'EU Index',    icon: '🇪🇺', decimals: 2, basePrice: 4895.20, volatility: 0.00015, payout: 91, category: 'index' },
+  { symbol: 'NZDUSD',   name: 'NZD/USD OTC',           display: 'NZD/USD',     icon: '🇳🇿', decimals: 5, basePrice: 0.59180, volatility: 0.00012, payout: 89, category: 'forex' },
+  { symbol: 'USDCHF',   name: 'USD/CHF OTC',           display: 'USD/CHF',     icon: '🇨🇭', decimals: 5, basePrice: 0.90820, volatility: 0.00012, payout: 89, category: 'forex' },
+  { symbol: 'GBPUSD',   name: 'GBP/USD OTC',           display: 'GBP/USD',     icon: '🇬🇧', decimals: 5, basePrice: 1.24560, volatility: 0.00012, payout: 87, category: 'forex' },
+  { symbol: 'USDCAD',   name: 'USD/CAD OTC',           display: 'USD/CAD',     icon: '🇨🇦', decimals: 5, basePrice: 1.37840, volatility: 0.00012, payout: 87, category: 'forex' },
+  { symbol: 'AUDCAD',   name: 'AUD/CAD OTC',           display: 'AUD/CAD',     icon: '🇦🇺', decimals: 5, basePrice: 0.90160, volatility: 0.00012, payout: 85, category: 'forex' },
+  { symbol: 'AUDJPY',   name: 'AUD/JPY OTC',           display: 'AUD/JPY',     icon: '🇦🇺', decimals: 3, basePrice: 100.910, volatility: 0.00014, payout: 85, category: 'forex' },
+  { symbol: 'AUDNZD',   name: 'AUD/NZD OTC',           display: 'AUD/NZD',     icon: '🇦🇺', decimals: 5, basePrice: 1.10560, volatility: 0.00010, payout: 85, category: 'forex' },
+  { symbol: 'ASIDX',    name: 'Asia Composite Index',  display: 'Asia Index',  icon: '🌏', decimals: 2, basePrice: 3742.80, volatility: 0.00018, payout: 85, category: 'index' },
   { symbol: 'CADCHF',   name: 'CAD/CHF OTC',           display: 'CAD/CHF',     icon: '🇨🇦', decimals: 5, basePrice: 0.65880, volatility: 0.0003, payout: 85, category: 'forex' },
   { symbol: 'XAGUSD',   name: 'Silver OTC',            display: 'XAG/USD',     icon: '🥈', decimals: 3, basePrice: 28.420, volatility: 0.0008, payout: 85, category: 'commodity' },
 ];
