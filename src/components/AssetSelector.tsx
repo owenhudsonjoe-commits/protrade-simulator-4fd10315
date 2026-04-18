@@ -75,18 +75,21 @@ const AssetSelector = ({ isOpen, onClose, onSelect, currentSymbol, tickers }: Pr
                       </div>
                       <div className="text-left">
                         <p className="text-sm font-semibold text-foreground">{pair.name}</p>
-                        <p className="text-xs text-muted-foreground">Crypto</p>
+                        <p className="text-xs text-muted-foreground capitalize">{pair.category}</p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-mono font-medium text-foreground">
-                        {t ? `$${t.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '---'}
+                        {t ? t.price.toLocaleString(undefined, { minimumFractionDigits: pair.decimals, maximumFractionDigits: pair.decimals }) : pair.basePrice.toFixed(pair.decimals)}
                       </p>
-                      <div className={`flex items-center gap-0.5 text-xs font-medium justify-end ${
-                        changePos ? 'text-trade-green' : 'text-trade-red'
-                      }`}>
-                        {changePos ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                        {t ? `${changePos ? '+' : ''}${t.changePercent.toFixed(2)}%` : '---'}
+                      <div className="flex items-center gap-2 justify-end">
+                        <span className="text-xs font-bold text-trade-green">{pair.payout}%</span>
+                        {t && (
+                          <span className={`flex items-center gap-0.5 text-[10px] font-medium ${changePos ? 'text-trade-green' : 'text-trade-red'}`}>
+                            {changePos ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                            {`${changePos ? '+' : ''}${t.changePercent.toFixed(2)}%`}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </button>

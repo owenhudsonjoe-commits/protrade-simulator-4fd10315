@@ -90,7 +90,7 @@ const AssetCarousel = ({ selectedSymbol, onSelect }: AssetCarouselProps) => {
               </div>
               <div className="text-left">
                 <div className={`text-[10px] font-semibold leading-tight ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
-                  {pair.name.replace('/USDT', '')}
+                  {pair.display}
                 </div>
                 <div className="flex items-center gap-1 leading-tight">
                   <motion.span
