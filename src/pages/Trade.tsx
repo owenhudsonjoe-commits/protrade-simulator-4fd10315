@@ -5,6 +5,7 @@ import LiveTradingChart from '@/components/LiveTradingChart';
 import type { ChartHandle } from '@/components/LiveTradingChart';
 import LiveTradePanel from '@/components/LiveTradePanel';
 import AssetSelector from '@/components/AssetSelector';
+import AssetCarousel from '@/components/AssetCarousel';
 import BottomNav from '@/components/BottomNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { TrendingUp, TrendingDown, ChevronDown, Wallet, Clock, BarChart2, Activity } from 'lucide-react';
@@ -98,6 +99,9 @@ const Trade = () => {
           </span>
         </div>
       </header>
+
+      {/* Asset switcher carousel */}
+      <AssetCarousel selectedSymbol={selectedSymbol} onSelect={setSelectedSymbol} />
 
       {/* Timeframe & controls bar */}
       <div className="flex items-center gap-1 px-3 py-1.5 bg-surface-1/50 backdrop-blur-sm border-b border-border/30 shrink-0">
