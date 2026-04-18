@@ -161,94 +161,121 @@ export const useForexFeed = (symbol: string) => {
   }, [symbol, interval]);
 
   // Live tick simulation:
-  //  - update underlying price at ~30 Hz with tiny gaussian steps (smooth)
-  //  - commit React state at 5 Hz so the candle re-renders look stable
+  //  - new candle is forced every 4 seconds
+  //  - price updates smoothly within each candle via requestAnimationFrame
   useEffect(() => {
     const asset = TRADING_PAIRS.find((p) => p.symbol === symbol);
     if (!asset) return;
-    const intv = intervalToSeconds(interval);
+
+    const CANDLE_DURATION_MS = 4000;
+
     let raf = 0;
     let lastTickAt = performance.now();
+    let lastCandleAt = performance.now();
     let lastCommitAt = performance.now();
-    const liveRand = Math.random; // independent live noise
+
     const gaussLive = () => {
-      const u = Math.max(liveRand(), 1e-9);
-      const v = liveRand();
+      const u = Math.max(Math.random(), 1e-9);
+      const v = Math.random();
       return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
     };
 
     let pendingHigh = priceRef.current;
     let pendingLow = priceRef.current;
     let pendingVol = 0;
+    let candleOpen = priceRef.current;
 
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
 
-      // Sub-tick the price at high frequency
+      // Sub-tick price at ~30 Hz for smooth movement
       const dt = (now - lastTickAt) / 1000;
       if (dt >= 1 / 30) {
         lastTickAt = now;
-        const noise = gaussLive() * asset.volatility * priceRef.current * Math.sqrt(dt);
+        const noise = gaussLive() * asset.volatility * 8 * priceRef.current * Math.sqrt(dt);
         priceRef.current += noise;
         if (priceRef.current > pendingHigh) pendingHigh = priceRef.current;
         if (priceRef.current < pendingLow) pendingLow = priceRef.current;
-        pendingVol += liveRand() * 0.5;
+        pendingVol += Math.random() * 0.5;
       }
 
-      // Commit to React at 5 Hz only — this is what makes the chart feel stable
-      if (now - lastCommitAt < 200) return;
-      lastCommitAt = now;
+      // Commit to React at ~10 Hz for smooth candle body updates
+      if (now - lastCommitAt >= 100) {
+        lastCommitAt = now;
 
-      const newPrice = priceRef.current;
-      if (newPrice > dayHighRef.current) dayHighRef.current = newPrice;
-      if (newPrice < dayLowRef.current) dayLowRef.current = newPrice;
-      volumeRef.current += pendingVol;
+        const newPrice = priceRef.current;
+        if (newPrice > dayHighRef.current) dayHighRef.current = newPrice;
+        if (newPrice < dayLowRef.current) dayLowRef.current = newPrice;
 
-      const nowSec = Math.floor(Date.now() / 1000);
-      const bucket = nowSec - (nowSec % intv);
-      const localHigh = pendingHigh;
-      const localLow = pendingLow;
-      const localVol = pendingVol;
-      pendingHigh = newPrice;
-      pendingLow = newPrice;
-      pendingVol = 0;
+        const localHigh = pendingHigh;
+        const localLow = pendingLow;
+        const localVol = pendingVol;
+        const shouldNewCandle = now - lastCandleAt >= CANDLE_DURATION_MS;
 
-      setCandles((prev) => {
-        if (prev.length === 0) return prev;
-        const updated = prev.slice();
-        const last = updated[updated.length - 1];
-        if (last.time === bucket) {
-          const next = { ...last };
-          next.close = newPrice;
-          if (localHigh > next.high) next.high = localHigh;
-          if (localLow < next.low) next.low = localLow;
-          next.volume += localVol;
-          updated[updated.length - 1] = next;
-        } else {
-          updated.push({
-            time: bucket,
-            open: last.close,
-            high: Math.max(last.close, newPrice, localHigh),
-            low: Math.min(last.close, newPrice, localLow),
-            close: newPrice,
-            volume: localVol,
+        if (shouldNewCandle) {
+          lastCandleAt = now;
+          volumeRef.current += localVol;
+          pendingVol = 0;
+
+          const newCandleOpen = newPrice;
+          const prevClose = newPrice;
+
+          setCandles((prev) => {
+            if (prev.length === 0) return prev;
+            const updated = prev.slice();
+            const last = updated[updated.length - 1];
+            updated[updated.length - 1] = {
+              ...last,
+              close: prevClose,
+              high: Math.max(last.high, localHigh),
+              low: Math.min(last.low, localLow),
+              volume: last.volume + localVol,
+            };
+            const nowSec = Math.floor(Date.now() / 1000);
+            updated.push({
+              time: nowSec,
+              open: newCandleOpen,
+              high: newCandleOpen,
+              low: newCandleOpen,
+              close: newCandleOpen,
+              volume: 0,
+            });
+            candleOpen = newCandleOpen;
+            pendingHigh = newCandleOpen;
+            pendingLow = newCandleOpen;
+            if (updated.length > 300) updated.shift();
+            return updated;
           });
-          if (updated.length > 300) updated.shift();
+        } else {
+          setCandles((prev) => {
+            if (prev.length === 0) return prev;
+            const updated = prev.slice();
+            const last = updated[updated.length - 1];
+            updated[updated.length - 1] = {
+              ...last,
+              close: newPrice,
+              high: Math.max(last.high, localHigh),
+              low: Math.min(last.low, localLow),
+              volume: last.volume + localVol,
+            };
+            pendingVol = 0;
+            volumeRef.current += localVol;
+            return updated;
+          });
         }
-        return updated;
-      });
 
-      const change = newPrice - dayOpenRef.current;
-      const changePct = (change / dayOpenRef.current) * 100;
-      setTicker({
-        symbol: asset.symbol,
-        price: newPrice,
-        change24h: change,
-        changePercent: changePct,
-        high: dayHighRef.current,
-        low: dayLowRef.current,
-        volume: volumeRef.current,
-      });
+        const change = newPrice - dayOpenRef.current;
+        const changePct = (change / dayOpenRef.current) * 100;
+        setTicker({
+          symbol: asset.symbol,
+          price: newPrice,
+          change24h: change,
+          changePercent: changePct,
+          high: dayHighRef.current,
+          low: dayLowRef.current,
+          volume: volumeRef.current,
+        });
+      }
     };
 
     raf = requestAnimationFrame(loop);
