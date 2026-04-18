@@ -16,7 +16,7 @@ const timeframes = ['1m', '5m', '15m', '1h'];
 
 const Trade = () => {
   const { user, logout } = useAuth();
-  const [selectedSymbol, setSelectedSymbol] = useState('BTCUSDT');
+  const [selectedSymbol, setSelectedSymbol] = useState('XAUUSD');
   const [showAssetSelector, setShowAssetSelector] = useState(false);
   const [allTickers, setAllTickers] = useState<Record<string, MarketTicker>>({});
   const [activeIndicators, setActiveIndicators] = useState<string[]>(['MA7', 'MA25']);
@@ -57,7 +57,8 @@ const Trade = () => {
           </div>
           <div>
             <div className="flex items-center gap-1">
-              <span className="text-sm font-bold text-foreground">{pair.name}</span>
+              <span className="text-sm font-bold text-foreground">{pair.display}</span>
+              <span className="text-[9px] font-bold text-trade-green bg-trade-green/10 px-1.5 py-0.5 rounded">{pair.payout}%</span>
               <ChevronDown className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
             </div>
             <div className="flex items-center gap-1.5">
@@ -78,7 +79,7 @@ const Trade = () => {
               animate={{ opacity: 1, y: 0 }}
               className={`text-lg font-mono font-bold tracking-tight ${priceUp ? 'text-trade-green' : 'text-trade-red'}`}
             >
-              ${ticker?.price.toLocaleString(undefined, { minimumFractionDigits: pair.decimals, maximumFractionDigits: pair.decimals }) || '---'}
+              {ticker?.price.toLocaleString(undefined, { minimumFractionDigits: pair.decimals, maximumFractionDigits: pair.decimals }) || '---'}
             </motion.p>
           </div>
           <div className={`flex items-center gap-1 justify-end ${priceUp ? 'text-trade-green' : 'text-trade-red'}`}>
@@ -133,12 +134,12 @@ const Trade = () => {
         <div className="ml-auto flex items-center gap-2 text-[10px] text-muted-foreground font-mono">
           <span className="flex items-center gap-1">
             <span className="text-muted-foreground/60">H</span>
-            <span className="text-trade-green">${ticker?.high.toLocaleString() || '---'}</span>
+            <span className="text-trade-green">{ticker?.high.toLocaleString(undefined, { minimumFractionDigits: pair.decimals, maximumFractionDigits: pair.decimals }) || '---'}</span>
           </span>
           <span className="w-px h-3 bg-border/50" />
           <span className="flex items-center gap-1">
             <span className="text-muted-foreground/60">L</span>
-            <span className="text-trade-red">${ticker?.low.toLocaleString() || '---'}</span>
+            <span className="text-trade-red">{ticker?.low.toLocaleString(undefined, { minimumFractionDigits: pair.decimals, maximumFractionDigits: pair.decimals }) || '---'}</span>
           </span>
           <span className="w-px h-3 bg-border/50" />
           <span className="flex items-center gap-1">
