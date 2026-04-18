@@ -34,20 +34,21 @@ export interface TradingAsset {
 }
 
 // Realistic seed prices (April 2026 reference). Slight drift simulated client-side.
+// volatility = relative std-dev per second (e.g. 0.00012 = 0.012%/s). Lower => calmer chart.
 export const TRADING_PAIRS: TradingAsset[] = [
-  { symbol: 'XAUUSD',   name: 'Gold OTC',              display: 'XAU/USD',     icon: '🥇', decimals: 2, basePrice: 2385.40, volatility: 0.0006, payout: 93, category: 'commodity' },
-  { symbol: 'USDJPY',   name: 'USD/JPY OTC',           display: 'USD/JPY',     icon: '🇺🇸', decimals: 3, basePrice: 154.215, volatility: 0.0004, payout: 93, category: 'forex' },
-  { symbol: 'AUDUSD',   name: 'AUD/USD OTC',           display: 'AUD/USD',     icon: '🇦🇺', decimals: 5, basePrice: 0.65420, volatility: 0.0004, payout: 91, category: 'forex' },
-  { symbol: 'EURUSD',   name: 'EUR/USD OTC',           display: 'EUR/USD',     icon: '🇪🇺', decimals: 5, basePrice: 1.06850, volatility: 0.0003, payout: 91, category: 'forex' },
-  { symbol: 'EUIDX',    name: 'Europe Composite Index',display: 'EU Index',    icon: '🇪🇺', decimals: 2, basePrice: 4895.20, volatility: 0.0005, payout: 91, category: 'index' },
-  { symbol: 'NZDUSD',   name: 'NZD/USD OTC',           display: 'NZD/USD',     icon: '🇳🇿', decimals: 5, basePrice: 0.59180, volatility: 0.0004, payout: 89, category: 'forex' },
-  { symbol: 'USDCHF',   name: 'USD/CHF OTC',           display: 'USD/CHF',     icon: '🇨🇭', decimals: 5, basePrice: 0.90820, volatility: 0.0004, payout: 89, category: 'forex' },
-  { symbol: 'GBPUSD',   name: 'GBP/USD OTC',           display: 'GBP/USD',     icon: '🇬🇧', decimals: 5, basePrice: 1.24560, volatility: 0.0004, payout: 87, category: 'forex' },
-  { symbol: 'USDCAD',   name: 'USD/CAD OTC',           display: 'USD/CAD',     icon: '🇨🇦', decimals: 5, basePrice: 1.37840, volatility: 0.0004, payout: 87, category: 'forex' },
-  { symbol: 'AUDCAD',   name: 'AUD/CAD OTC',           display: 'AUD/CAD',     icon: '🇦🇺', decimals: 5, basePrice: 0.90160, volatility: 0.0004, payout: 85, category: 'forex' },
-  { symbol: 'AUDJPY',   name: 'AUD/JPY OTC',           display: 'AUD/JPY',     icon: '🇦🇺', decimals: 3, basePrice: 100.910, volatility: 0.0005, payout: 85, category: 'forex' },
-  { symbol: 'AUDNZD',   name: 'AUD/NZD OTC',           display: 'AUD/NZD',     icon: '🇦🇺', decimals: 5, basePrice: 1.10560, volatility: 0.0003, payout: 85, category: 'forex' },
-  { symbol: 'ASIDX',    name: 'Asia Composite Index',  display: 'Asia Index',  icon: '🌏', decimals: 2, basePrice: 3742.80, volatility: 0.0006, payout: 85, category: 'index' },
+  { symbol: 'XAUUSD',   name: 'Gold OTC',              display: 'XAU/USD',     icon: '🥇', decimals: 2, basePrice: 2385.40, volatility: 0.00018, payout: 93, category: 'commodity' },
+  { symbol: 'USDJPY',   name: 'USD/JPY OTC',           display: 'USD/JPY',     icon: '🇺🇸', decimals: 3, basePrice: 154.215, volatility: 0.00012, payout: 93, category: 'forex' },
+  { symbol: 'AUDUSD',   name: 'AUD/USD OTC',           display: 'AUD/USD',     icon: '🇦🇺', decimals: 5, basePrice: 0.65420, volatility: 0.00012, payout: 91, category: 'forex' },
+  { symbol: 'EURUSD',   name: 'EUR/USD OTC',           display: 'EUR/USD',     icon: '🇪🇺', decimals: 5, basePrice: 1.06850, volatility: 0.00010, payout: 91, category: 'forex' },
+  { symbol: 'EUIDX',    name: 'Europe Composite Index',display: 'EU Index',    icon: '🇪🇺', decimals: 2, basePrice: 4895.20, volatility: 0.00015, payout: 91, category: 'index' },
+  { symbol: 'NZDUSD',   name: 'NZD/USD OTC',           display: 'NZD/USD',     icon: '🇳🇿', decimals: 5, basePrice: 0.59180, volatility: 0.00012, payout: 89, category: 'forex' },
+  { symbol: 'USDCHF',   name: 'USD/CHF OTC',           display: 'USD/CHF',     icon: '🇨🇭', decimals: 5, basePrice: 0.90820, volatility: 0.00012, payout: 89, category: 'forex' },
+  { symbol: 'GBPUSD',   name: 'GBP/USD OTC',           display: 'GBP/USD',     icon: '🇬🇧', decimals: 5, basePrice: 1.24560, volatility: 0.00012, payout: 87, category: 'forex' },
+  { symbol: 'USDCAD',   name: 'USD/CAD OTC',           display: 'USD/CAD',     icon: '🇨🇦', decimals: 5, basePrice: 1.37840, volatility: 0.00012, payout: 87, category: 'forex' },
+  { symbol: 'AUDCAD',   name: 'AUD/CAD OTC',           display: 'AUD/CAD',     icon: '🇦🇺', decimals: 5, basePrice: 0.90160, volatility: 0.00012, payout: 85, category: 'forex' },
+  { symbol: 'AUDJPY',   name: 'AUD/JPY OTC',           display: 'AUD/JPY',     icon: '🇦🇺', decimals: 3, basePrice: 100.910, volatility: 0.00014, payout: 85, category: 'forex' },
+  { symbol: 'AUDNZD',   name: 'AUD/NZD OTC',           display: 'AUD/NZD',     icon: '🇦🇺', decimals: 5, basePrice: 1.10560, volatility: 0.00010, payout: 85, category: 'forex' },
+  { symbol: 'ASIDX',    name: 'Asia Composite Index',  display: 'Asia Index',  icon: '🌏', decimals: 2, basePrice: 3742.80, volatility: 0.00018, payout: 85, category: 'index' },
   { symbol: 'CADCHF',   name: 'CAD/CHF OTC',           display: 'CAD/CHF',     icon: '🇨🇦', decimals: 5, basePrice: 0.65880, volatility: 0.0003, payout: 85, category: 'forex' },
   { symbol: 'XAGUSD',   name: 'Silver OTC',            display: 'XAG/USD',     icon: '🥈', decimals: 3, basePrice: 28.420, volatility: 0.0008, payout: 85, category: 'commodity' },
 ];
@@ -77,7 +78,15 @@ const seedFromSymbol = (sym: string): number => {
   return h;
 };
 
-// Generate historical candles using a random walk anchored at basePrice
+// Box-Muller for gaussian noise — far more natural than uniform random
+const gauss = (rand: () => number) => {
+  const u = Math.max(rand(), 1e-9);
+  const v = rand();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+};
+
+// Generate historical candles using mean-reverting OU process
+// volatility is per-second relative std-dev. Each candle is built from many small steps.
 const generateHistory = (asset: TradingAsset, intervalSec: number, count: number): CandleData[] => {
   const rand = seededRandom(seedFromSymbol(asset.symbol) + intervalSec);
   const now = Math.floor(Date.now() / 1000);
@@ -85,13 +94,17 @@ const generateHistory = (asset: TradingAsset, intervalSec: number, count: number
   const startTimeAligned = startTime - (startTime % intervalSec);
   const candles: CandleData[] = [];
   let price = asset.basePrice;
+  const meanRevertStrength = 0.02; // gentle pull back to base price across history
+  const stepDt = 1; // 1-second sub-steps
+  const stepsPerCandle = Math.max(1, intervalSec / stepDt);
+
   for (let i = 0; i < count; i++) {
     const open = price;
-    const ticksInCandle = 20;
     let high = open, low = open, close = open;
-    for (let t = 0; t < ticksInCandle; t++) {
-      const drift = (rand() - 0.5) * 2 * asset.volatility * close;
-      close += drift;
+    for (let t = 0; t < stepsPerCandle; t++) {
+      const noise = gauss(rand) * asset.volatility * close * Math.sqrt(stepDt);
+      const meanPull = (asset.basePrice - close) * meanRevertStrength * stepDt * 0.001;
+      close = close + noise + meanPull;
       if (close > high) high = close;
       if (close < low) low = close;
     }
@@ -147,30 +160,58 @@ export const useForexFeed = (symbol: string) => {
     });
   }, [symbol, interval]);
 
-  // Live tick simulation — ~10 ticks/sec, smooth chart updates
+  // Live tick simulation:
+  //  - update underlying price at ~30 Hz with tiny gaussian steps (smooth)
+  //  - commit React state at 5 Hz so the candle re-renders look stable
   useEffect(() => {
     const asset = TRADING_PAIRS.find((p) => p.symbol === symbol);
     if (!asset) return;
     const intv = intervalToSeconds(interval);
     let raf = 0;
     let lastTickAt = performance.now();
+    let lastCommitAt = performance.now();
+    const liveRand = Math.random; // independent live noise
+    const gaussLive = () => {
+      const u = Math.max(liveRand(), 1e-9);
+      const v = liveRand();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    };
 
-    const tick = (now: number) => {
-      raf = requestAnimationFrame(tick);
-      const dt = now - lastTickAt;
-      if (dt < 100) return; // ~10 Hz
-      lastTickAt = now;
+    let pendingHigh = priceRef.current;
+    let pendingLow = priceRef.current;
+    let pendingVol = 0;
 
-      const drift = (Math.random() - 0.5) * 2 * asset.volatility * priceRef.current;
-      const newPrice = priceRef.current + drift;
-      priceRef.current = newPrice;
+    const loop = (now: number) => {
+      raf = requestAnimationFrame(loop);
+
+      // Sub-tick the price at high frequency
+      const dt = (now - lastTickAt) / 1000;
+      if (dt >= 1 / 30) {
+        lastTickAt = now;
+        const noise = gaussLive() * asset.volatility * priceRef.current * Math.sqrt(dt);
+        priceRef.current += noise;
+        if (priceRef.current > pendingHigh) pendingHigh = priceRef.current;
+        if (priceRef.current < pendingLow) pendingLow = priceRef.current;
+        pendingVol += liveRand() * 0.5;
+      }
+
+      // Commit to React at 5 Hz only — this is what makes the chart feel stable
+      if (now - lastCommitAt < 200) return;
+      lastCommitAt = now;
+
+      const newPrice = priceRef.current;
       if (newPrice > dayHighRef.current) dayHighRef.current = newPrice;
       if (newPrice < dayLowRef.current) dayLowRef.current = newPrice;
-      const vol = Math.random() * 5;
-      volumeRef.current += vol;
+      volumeRef.current += pendingVol;
 
       const nowSec = Math.floor(Date.now() / 1000);
       const bucket = nowSec - (nowSec % intv);
+      const localHigh = pendingHigh;
+      const localLow = pendingLow;
+      const localVol = pendingVol;
+      pendingHigh = newPrice;
+      pendingLow = newPrice;
+      pendingVol = 0;
 
       setCandles((prev) => {
         if (prev.length === 0) return prev;
@@ -179,18 +220,18 @@ export const useForexFeed = (symbol: string) => {
         if (last.time === bucket) {
           const next = { ...last };
           next.close = newPrice;
-          if (newPrice > next.high) next.high = newPrice;
-          if (newPrice < next.low) next.low = newPrice;
-          next.volume += vol;
+          if (localHigh > next.high) next.high = localHigh;
+          if (localLow < next.low) next.low = localLow;
+          next.volume += localVol;
           updated[updated.length - 1] = next;
         } else {
           updated.push({
             time: bucket,
             open: last.close,
-            high: newPrice,
-            low: newPrice,
+            high: Math.max(last.close, newPrice, localHigh),
+            low: Math.min(last.close, newPrice, localLow),
             close: newPrice,
-            volume: vol,
+            volume: localVol,
           });
           if (updated.length > 300) updated.shift();
         }
@@ -210,7 +251,7 @@ export const useForexFeed = (symbol: string) => {
       });
     };
 
-    raf = requestAnimationFrame(tick);
+    raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
   }, [symbol, interval]);
 
