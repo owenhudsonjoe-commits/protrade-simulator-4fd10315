@@ -18,27 +18,34 @@ const AssetCarousel = ({ selectedSymbol, onSelect }: AssetCarouselProps) => {
   const [tickers, setTickers] = useState<Record<string, MiniTicker>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Simulated multi-asset OTC ticker — drives every pair in the carousel
   useEffect(() => {
-    const symbols = TRADING_PAIRS.map((p) => p.symbol.toLowerCase());
-    const streams = symbols.map((s) => `${s}@miniTicker`).join('/');
-    const ws = new WebSocket(`wss://stream.binance.com:9443/stream?streams=${streams}`);
+    // seed
+    const init: Record<string, MiniTicker> = {};
+    TRADING_PAIRS.forEach((p) => {
+      init[p.symbol] = { symbol: p.symbol, price: p.basePrice, changePercent: 0 };
+    });
+    setTickers(init);
 
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        const d = msg.data;
-        if (!d) return;
-        const open = parseFloat(d.o);
-        const close = parseFloat(d.c);
-        const changePercent = open > 0 ? ((close - open) / open) * 100 : 0;
-        setTickers((prev) => ({
-          ...prev,
-          [d.s]: { symbol: d.s, price: close, changePercent },
-        }));
-      } catch {}
-    };
+    const opens: Record<string, number> = {};
+    const prices: Record<string, number> = {};
+    TRADING_PAIRS.forEach((p) => {
+      opens[p.symbol] = p.basePrice;
+      prices[p.symbol] = p.basePrice;
+    });
 
-    return () => ws.close();
+    const id = window.setInterval(() => {
+      const next: Record<string, MiniTicker> = {};
+      TRADING_PAIRS.forEach((p) => {
+        const drift = (Math.random() - 0.5) * 2 * p.volatility * prices[p.symbol];
+        prices[p.symbol] += drift;
+        const changePercent = ((prices[p.symbol] - opens[p.symbol]) / opens[p.symbol]) * 100;
+        next[p.symbol] = { symbol: p.symbol, price: prices[p.symbol], changePercent };
+      });
+      setTickers(next);
+    }, 800);
+
+    return () => window.clearInterval(id);
   }, []);
 
   // Auto-scroll selected pair into view
@@ -83,7 +90,7 @@ const AssetCarousel = ({ selectedSymbol, onSelect }: AssetCarouselProps) => {
               </div>
               <div className="text-left">
                 <div className={`text-[10px] font-semibold leading-tight ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
-                  {pair.name.replace('/USDT', '')}
+                  {pair.display}
                 </div>
                 <div className="flex items-center gap-1 leading-tight">
                   <motion.span
