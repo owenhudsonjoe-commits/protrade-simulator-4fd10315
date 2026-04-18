@@ -1,6 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useTrades } from '@/contexts/TradeContext';
 import BottomNav from '@/components/BottomNav';
+import PerformanceStats from '@/components/PerformanceStats';
 import { Wallet, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -70,13 +71,8 @@ const WalletPage = () => {
           ))}
         </div>
 
-        {/* Recent activity placeholder */}
-        <div className="glass rounded-xl p-4">
-          <h3 className="text-sm font-semibold text-foreground mb-3">Recent Activity</h3>
-          <div className="text-center py-8 text-muted-foreground text-sm">
-            No recent activity
-          </div>
-        </div>
+        {/* Performance stats & charts */}
+        <PerformanceStats trades={trades.filter((t) => t.userId === user?.id)} />
       </div>
 
       <BottomNav />
