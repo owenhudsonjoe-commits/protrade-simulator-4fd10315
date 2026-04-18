@@ -192,7 +192,7 @@ export const useForexFeed = (symbol: string) => {
       const dt = (now - lastTickAt) / 1000;
       if (dt >= 1 / 30) {
         lastTickAt = now;
-        const noise = gaussLive() * asset.volatility * 1.5 * priceRef.current * Math.sqrt(dt);
+        const noise = gaussLive() * asset.volatility * 6 * priceRef.current * Math.sqrt(dt);
         priceRef.current += noise;
         if (priceRef.current > pendingHigh) pendingHigh = priceRef.current;
         if (priceRef.current < pendingLow) pendingLow = priceRef.current;
