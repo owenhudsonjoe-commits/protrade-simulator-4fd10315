@@ -1,0 +1,218 @@
+import { useEffect, useRef, useState, useCallback } from 'react';
+
+export interface MarketTicker {
+  symbol: string;
+  price: number;
+  change24h: number;
+  changePercent: number;
+  high: number;
+  low: number;
+  volume: number;
+}
+
+export interface CandleData {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export type AssetCategory = 'commodity' | 'forex' | 'index';
+
+export interface TradingAsset {
+  symbol: string;        // e.g. "XAUUSD"
+  name: string;          // e.g. "Gold OTC"
+  display: string;       // e.g. "XAU/USD"
+  icon: string;          // emoji / short
+  decimals: number;      // price formatting
+  basePrice: number;     // realistic seed price
+  volatility: number;    // per-tick % volatility (e.g. 0.0004 = 0.04%)
+  payout: number;        // e.g. 93
+  category: AssetCategory;
+}
+
+// Realistic seed prices (April 2026 reference). Slight drift simulated client-side.
+export const TRADING_PAIRS: TradingAsset[] = [
+  { symbol: 'XAUUSD',   name: 'Gold OTC',              display: 'XAU/USD',     icon: '🥇', decimals: 2, basePrice: 2385.40, volatility: 0.0006, payout: 93, category: 'commodity' },
+  { symbol: 'USDJPY',   name: 'USD/JPY OTC',           display: 'USD/JPY',     icon: '🇺🇸', decimals: 3, basePrice: 154.215, volatility: 0.0004, payout: 93, category: 'forex' },
+  { symbol: 'AUDUSD',   name: 'AUD/USD OTC',           display: 'AUD/USD',     icon: '🇦🇺', decimals: 5, basePrice: 0.65420, volatility: 0.0004, payout: 91, category: 'forex' },
+  { symbol: 'EURUSD',   name: 'EUR/USD OTC',           display: 'EUR/USD',     icon: '🇪🇺', decimals: 5, basePrice: 1.06850, volatility: 0.0003, payout: 91, category: 'forex' },
+  { symbol: 'EUIDX',    name: 'Europe Composite Index',display: 'EU Index',    icon: '🇪🇺', decimals: 2, basePrice: 4895.20, volatility: 0.0005, payout: 91, category: 'index' },
+  { symbol: 'NZDUSD',   name: 'NZD/USD OTC',           display: 'NZD/USD',     icon: '🇳🇿', decimals: 5, basePrice: 0.59180, volatility: 0.0004, payout: 89, category: 'forex' },
+  { symbol: 'USDCHF',   name: 'USD/CHF OTC',           display: 'USD/CHF',     icon: '🇨🇭', decimals: 5, basePrice: 0.90820, volatility: 0.0004, payout: 89, category: 'forex' },
+  { symbol: 'GBPUSD',   name: 'GBP/USD OTC',           display: 'GBP/USD',     icon: '🇬🇧', decimals: 5, basePrice: 1.24560, volatility: 0.0004, payout: 87, category: 'forex' },
+  { symbol: 'USDCAD',   name: 'USD/CAD OTC',           display: 'USD/CAD',     icon: '🇨🇦', decimals: 5, basePrice: 1.37840, volatility: 0.0004, payout: 87, category: 'forex' },
+  { symbol: 'AUDCAD',   name: 'AUD/CAD OTC',           display: 'AUD/CAD',     icon: '🇦🇺', decimals: 5, basePrice: 0.90160, volatility: 0.0004, payout: 85, category: 'forex' },
+  { symbol: 'AUDJPY',   name: 'AUD/JPY OTC',           display: 'AUD/JPY',     icon: '🇦🇺', decimals: 3, basePrice: 100.910, volatility: 0.0005, payout: 85, category: 'forex' },
+  { symbol: 'AUDNZD',   name: 'AUD/NZD OTC',           display: 'AUD/NZD',     icon: '🇦🇺', decimals: 5, basePrice: 1.10560, volatility: 0.0003, payout: 85, category: 'forex' },
+  { symbol: 'ASIDX',    name: 'Asia Composite Index',  display: 'Asia Index',  icon: '🌏', decimals: 2, basePrice: 3742.80, volatility: 0.0006, payout: 85, category: 'index' },
+  { symbol: 'CADCHF',   name: 'CAD/CHF OTC',           display: 'CAD/CHF',     icon: '🇨🇦', decimals: 5, basePrice: 0.65880, volatility: 0.0003, payout: 85, category: 'forex' },
+  { symbol: 'XAGUSD',   name: 'Silver OTC',            display: 'XAG/USD',     icon: '🥈', decimals: 3, basePrice: 28.420, volatility: 0.0008, payout: 85, category: 'commodity' },
+];
+
+const intervalToSeconds = (intv: string): number => {
+  switch (intv) {
+    case '1m': return 60;
+    case '5m': return 300;
+    case '15m': return 900;
+    case '1h': return 3600;
+    default: return 60;
+  }
+};
+
+// Deterministic seeded RNG so different symbols evolve independently but stably across remounts
+const seededRandom = (seed: number) => {
+  let s = seed;
+  return () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+};
+
+const seedFromSymbol = (sym: string): number => {
+  let h = 0;
+  for (let i = 0; i < sym.length; i++) h = (h * 31 + sym.charCodeAt(i)) >>> 0;
+  return h;
+};
+
+// Generate historical candles using a random walk anchored at basePrice
+const generateHistory = (asset: TradingAsset, intervalSec: number, count: number): CandleData[] => {
+  const rand = seededRandom(seedFromSymbol(asset.symbol) + intervalSec);
+  const now = Math.floor(Date.now() / 1000);
+  const startTime = now - (count * intervalSec);
+  const startTimeAligned = startTime - (startTime % intervalSec);
+  const candles: CandleData[] = [];
+  let price = asset.basePrice;
+  for (let i = 0; i < count; i++) {
+    const open = price;
+    const ticksInCandle = 20;
+    let high = open, low = open, close = open;
+    for (let t = 0; t < ticksInCandle; t++) {
+      const drift = (rand() - 0.5) * 2 * asset.volatility * close;
+      close += drift;
+      if (close > high) high = close;
+      if (close < low) low = close;
+    }
+    candles.push({
+      time: startTimeAligned + i * intervalSec,
+      open,
+      high,
+      low,
+      close,
+      volume: 100 + rand() * 900,
+    });
+    price = close;
+  }
+  return candles;
+};
+
+export const useForexFeed = (symbol: string) => {
+  const [ticker, setTicker] = useState<MarketTicker | null>(null);
+  const [candles, setCandles] = useState<CandleData[]>([]);
+  const [isConnected, setIsConnected] = useState(false);
+  const [interval, setInterval_] = useState('1m');
+  const priceRef = useRef<number>(0);
+  const dayOpenRef = useRef<number>(0);
+  const dayHighRef = useRef<number>(0);
+  const dayLowRef = useRef<number>(0);
+  const volumeRef = useRef<number>(0);
+
+  // Initialize / reset on symbol or interval change
+  useEffect(() => {
+    const asset = TRADING_PAIRS.find((p) => p.symbol === symbol);
+    if (!asset) return;
+    const intv = intervalToSeconds(interval);
+    const hist = generateHistory(asset, intv, 200);
+    setCandles(hist);
+    const last = hist[hist.length - 1];
+    priceRef.current = last.close;
+    dayOpenRef.current = hist[Math.max(0, hist.length - Math.floor(86400 / intv))]?.open ?? hist[0].open;
+    dayHighRef.current = Math.max(...hist.slice(-Math.floor(86400 / intv)).map((c) => c.high));
+    dayLowRef.current = Math.min(...hist.slice(-Math.floor(86400 / intv)).map((c) => c.low));
+    volumeRef.current = hist.reduce((s, c) => s + c.volume, 0);
+    setIsConnected(true);
+
+    const change = last.close - dayOpenRef.current;
+    const changePct = (change / dayOpenRef.current) * 100;
+    setTicker({
+      symbol: asset.symbol,
+      price: last.close,
+      change24h: change,
+      changePercent: changePct,
+      high: dayHighRef.current,
+      low: dayLowRef.current,
+      volume: volumeRef.current,
+    });
+  }, [symbol, interval]);
+
+  // Live tick simulation — ~10 ticks/sec, smooth chart updates
+  useEffect(() => {
+    const asset = TRADING_PAIRS.find((p) => p.symbol === symbol);
+    if (!asset) return;
+    const intv = intervalToSeconds(interval);
+    let raf = 0;
+    let lastTickAt = performance.now();
+
+    const tick = (now: number) => {
+      raf = requestAnimationFrame(tick);
+      const dt = now - lastTickAt;
+      if (dt < 100) return; // ~10 Hz
+      lastTickAt = now;
+
+      const drift = (Math.random() - 0.5) * 2 * asset.volatility * priceRef.current;
+      const newPrice = priceRef.current + drift;
+      priceRef.current = newPrice;
+      if (newPrice > dayHighRef.current) dayHighRef.current = newPrice;
+      if (newPrice < dayLowRef.current) dayLowRef.current = newPrice;
+      const vol = Math.random() * 5;
+      volumeRef.current += vol;
+
+      const nowSec = Math.floor(Date.now() / 1000);
+      const bucket = nowSec - (nowSec % intv);
+
+      setCandles((prev) => {
+        if (prev.length === 0) return prev;
+        const updated = prev.slice();
+        const last = updated[updated.length - 1];
+        if (last.time === bucket) {
+          const next = { ...last };
+          next.close = newPrice;
+          if (newPrice > next.high) next.high = newPrice;
+          if (newPrice < next.low) next.low = newPrice;
+          next.volume += vol;
+          updated[updated.length - 1] = next;
+        } else {
+          updated.push({
+            time: bucket,
+            open: last.close,
+            high: newPrice,
+            low: newPrice,
+            close: newPrice,
+            volume: vol,
+          });
+          if (updated.length > 300) updated.shift();
+        }
+        return updated;
+      });
+
+      const change = newPrice - dayOpenRef.current;
+      const changePct = (change / dayOpenRef.current) * 100;
+      setTicker({
+        symbol: asset.symbol,
+        price: newPrice,
+        change24h: change,
+        changePercent: changePct,
+        high: dayHighRef.current,
+        low: dayLowRef.current,
+        volume: volumeRef.current,
+      });
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [symbol, interval]);
+
+  return { ticker, candles, isConnected, interval, setInterval: setInterval_ };
+};
