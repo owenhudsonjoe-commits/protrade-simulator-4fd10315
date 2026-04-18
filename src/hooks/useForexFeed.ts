@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export interface MarketTicker {
   symbol: string;
@@ -51,7 +51,7 @@ export const TRADING_PAIRS: TradingAsset[] = [
   { symbol: 'XAGUSD',   name: 'Silver OTC',            display: 'XAG/USD',     icon: '🥈', decimals: 3, basePrice: 28.420,  volatility: 0.0008,  payout: 85, category: 'commodity' },
 ];
 
-// ─── Module-level cache (persists across symbol switches) ───────────────────
+// ─── Module-level cache ──────────────────────────────────────────────────────
 interface CacheEntry {
   candles: CandleData[];
   price: number;
@@ -61,64 +61,69 @@ interface CacheEntry {
   volume: number;
 }
 const feedCache = new Map<string, CacheEntry>();
+const cacheKey = (sym: string, intv: string) => `${sym}-${intv}`;
 
-const cacheKey = (symbol: string, interval: string) => `${symbol}-${interval}`;
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-const intervalToSeconds = (intv: string): number => {
-  switch (intv) {
-    case '1m':  return 60;
-    case '5m':  return 300;
-    case '15m': return 900;
-    case '1h':  return 3600;
-    default:    return 60;
-  }
+// ─── Interval config ─────────────────────────────────────────────────────────
+// intervalSec  : seconds each candle represents in history
+// candleMs     : how many real milliseconds before a new live candle closes
+// tickVolatility: extra multiplier on noise so shorter candles still look lively
+interface IntervalConfig {
+  intervalSec: number;
+  candleMs: number;
+  tickVol: number;
+}
+const INTERVAL_CONFIG: Record<string, IntervalConfig> = {
+  '1m':  { intervalSec: 60,   candleMs: 8_000,  tickVol: 6 },
+  '5m':  { intervalSec: 300,  candleMs: 20_000, tickVol: 5 },
+  '15m': { intervalSec: 900,  candleMs: 45_000, tickVol: 4 },
+  '1h':  { intervalSec: 3600, candleMs: 90_000, tickVol: 3 },
 };
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 const seededRandom = (seed: number) => {
   let s = seed;
-  return () => {
-    s = (s * 9301 + 49297) % 233280;
-    return s / 233280;
-  };
+  return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
 };
-
 const seedFromSymbol = (sym: string): number => {
   let h = 0;
   for (let i = 0; i < sym.length; i++) h = (h * 31 + sym.charCodeAt(i)) >>> 0;
   return h;
 };
-
 const gauss = (rand: () => number) => {
-  const u = Math.max(rand(), 1e-9);
-  const v = rand();
+  const u = Math.max(rand(), 1e-9), v = rand();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+};
+const gaussLive = () => {
+  const u = Math.max(Math.random(), 1e-9), v = Math.random();
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
 };
 
+// Generate realistic historical candles with correct timestamps
 const generateHistory = (asset: TradingAsset, intervalSec: number, count: number): CandleData[] => {
   const rand = seededRandom(seedFromSymbol(asset.symbol) + intervalSec);
-  const now = Math.floor(Date.now() / 1000);
-  const startTime = now - count * intervalSec;
-  const startTimeAligned = startTime - (startTime % intervalSec);
+  const now  = Math.floor(Date.now() / 1000);
+  // Align start to interval boundary
+  const latestBoundary = now - (now % intervalSec);
+  const startTime = latestBoundary - (count - 1) * intervalSec;
+
   const candles: CandleData[] = [];
   let price = asset.basePrice;
   const meanRevertStrength = 0.02;
-  const stepDt = 1;
-  const stepsPerCandle = Math.max(1, intervalSec / stepDt);
+  const stepsPerCandle = Math.max(1, Math.min(intervalSec, 300)); // cap at 300 sub-steps
 
   for (let i = 0; i < count; i++) {
     const open = price;
     let high = open, low = open, close = open;
     for (let t = 0; t < stepsPerCandle; t++) {
-      const noise = gauss(rand) * asset.volatility * close * Math.sqrt(stepDt);
-      const meanPull = (asset.basePrice - close) * meanRevertStrength * stepDt * 0.001;
+      const dt = intervalSec / stepsPerCandle;
+      const noise = gauss(rand) * asset.volatility * close * Math.sqrt(dt);
+      const meanPull = (asset.basePrice - close) * meanRevertStrength * dt * 0.001;
       close = close + noise + meanPull;
       if (close > high) high = close;
-      if (close < low) low = close;
+      if (close < low)  low  = close;
     }
     candles.push({
-      time: startTimeAligned + i * intervalSec,
+      time: startTime + i * intervalSec,
       open, high, low, close,
       volume: 100 + rand() * 900,
     });
@@ -127,37 +132,33 @@ const generateHistory = (asset: TradingAsset, intervalSec: number, count: number
   return candles;
 };
 
-// ─── Hook ───────────────────────────────────────────────────────────────────
-
+// ─── Hook ────────────────────────────────────────────────────────────────────
 export const useForexFeed = (symbol: string) => {
-  const [ticker, setTicker] = useState<MarketTicker | null>(null);
-  const [candles, setCandles] = useState<CandleData[]>([]);
+  const [ticker, setTicker]       = useState<MarketTicker | null>(null);
+  const [candles, setCandles]     = useState<CandleData[]>([]);
   const [isConnected, setIsConnected] = useState(false);
-  const [interval, setInterval_] = useState('1m');
+  const [interval, setInterval_]  = useState('1m');
+
   const priceRef   = useRef<number>(0);
   const dayOpenRef = useRef<number>(0);
   const dayHighRef = useRef<number>(0);
   const dayLowRef  = useRef<number>(0);
   const volumeRef  = useRef<number>(0);
 
-  // ── Initialize / restore on symbol or interval change ──────────────────
+  // ── Initialize / restore on symbol or interval change ────────────────────
   useEffect(() => {
     const asset = TRADING_PAIRS.find((p) => p.symbol === symbol);
     if (!asset) return;
 
-    const intv  = intervalToSeconds(interval);
-    const key   = cacheKey(symbol, interval);
+    const { intervalSec } = INTERVAL_CONFIG[interval] ?? INTERVAL_CONFIG['1m'];
+    const key    = cacheKey(symbol, interval);
     const cached = feedCache.get(key);
 
-    let initCandles: CandleData[];
-    let initPrice: number;
-    let initDayOpen: number;
-    let initDayHigh: number;
-    let initDayLow: number;
-    let initVolume: number;
+    let initCandles: CandleData[], initPrice: number,
+        initDayOpen: number, initDayHigh: number,
+        initDayLow: number,  initVolume: number;
 
     if (cached) {
-      // ── Restore from cache ──────────────────────────────────────────────
       initCandles  = cached.candles;
       initPrice    = cached.price;
       initDayOpen  = cached.dayOpen;
@@ -165,24 +166,20 @@ export const useForexFeed = (symbol: string) => {
       initDayLow   = cached.dayLow;
       initVolume   = cached.volume;
     } else {
-      // ── Generate fresh history ─────────────────────────────────────────
-      const hist     = generateHistory(asset, intv, 200);
-      const last     = hist[hist.length - 1];
-      const daySlice = hist.slice(-Math.floor(86400 / intv));
+      const hist      = generateHistory(asset, intervalSec, 200);
+      const last      = hist[hist.length - 1];
+      const dayBars   = Math.max(1, Math.floor(86400 / intervalSec));
+      const daySlice  = hist.slice(-dayBars);
       initCandles  = hist;
       initPrice    = last.close;
-      initDayOpen  = hist[Math.max(0, hist.length - Math.floor(86400 / intv))]?.open ?? hist[0].open;
+      initDayOpen  = hist[Math.max(0, hist.length - dayBars)]?.open ?? hist[0].open;
       initDayHigh  = Math.max(...daySlice.map((c) => c.high));
       initDayLow   = Math.min(...daySlice.map((c) => c.low));
       initVolume   = hist.reduce((s, c) => s + c.volume, 0);
-
       feedCache.set(key, {
-        candles: initCandles,
-        price:   initPrice,
-        dayOpen: initDayOpen,
-        dayHigh: initDayHigh,
-        dayLow:  initDayLow,
-        volume:  initVolume,
+        candles: initCandles, price: initPrice,
+        dayOpen: initDayOpen, dayHigh: initDayHigh,
+        dayLow: initDayLow,   volume: initVolume,
       });
     }
 
@@ -191,155 +188,124 @@ export const useForexFeed = (symbol: string) => {
     dayHighRef.current = initDayHigh;
     dayLowRef.current  = initDayLow;
     volumeRef.current  = initVolume;
-
     setCandles(initCandles);
     setIsConnected(true);
 
-    const change    = initPrice - initDayOpen;
-    const changePct = (change / initDayOpen) * 100;
+    const change = initPrice - initDayOpen;
     setTicker({
-      symbol: asset.symbol,
-      price: initPrice,
-      change24h: change,
-      changePercent: changePct,
-      high: initDayHigh,
-      low:  initDayLow,
-      volume: initVolume,
+      symbol: asset.symbol, price: initPrice,
+      change24h: change, changePercent: (change / initDayOpen) * 100,
+      high: initDayHigh, low: initDayLow, volume: initVolume,
     });
   }, [symbol, interval]);
 
-  // ── Live tick simulation ─────────────────────────────────────────────────
+  // ── Live tick simulation ──────────────────────────────────────────────────
   useEffect(() => {
     const asset = TRADING_PAIRS.find((p) => p.symbol === symbol);
     if (!asset) return;
 
-    const CANDLE_DURATION_MS = 4000;
+    const cfg = INTERVAL_CONFIG[interval] ?? INTERVAL_CONFIG['1m'];
+    const { intervalSec, candleMs, tickVol } = cfg;
     const key = cacheKey(symbol, interval);
 
     let raf = 0;
     let lastTickAt   = performance.now();
     let lastCandleAt = performance.now();
     let lastCommitAt = performance.now();
+    let pendingHigh  = priceRef.current;
+    let pendingLow   = priceRef.current;
+    let pendingVol   = 0;
 
-    const gaussLive = () => {
-      const u = Math.max(Math.random(), 1e-9);
-      const v = Math.random();
-      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-    };
+    const tick = (now: number) => {
+      raf = requestAnimationFrame(tick);
 
-    let pendingHigh = priceRef.current;
-    let pendingLow  = priceRef.current;
-    let pendingVol  = 0;
-    let candleOpen  = priceRef.current;
-
-    const loop = (now: number) => {
-      raf = requestAnimationFrame(loop);
-
+      // Price update at ~30 Hz
       const dt = (now - lastTickAt) / 1000;
       if (dt >= 1 / 30) {
         lastTickAt = now;
-        const noise = gaussLive() * asset.volatility * 6 * priceRef.current * Math.sqrt(dt);
-        priceRef.current += noise;
+        const noise = gaussLive() * asset.volatility * tickVol * priceRef.current * Math.sqrt(dt);
+        priceRef.current = Math.max(priceRef.current + noise, asset.basePrice * 0.5);
         if (priceRef.current > pendingHigh) pendingHigh = priceRef.current;
         if (priceRef.current < pendingLow)  pendingLow  = priceRef.current;
         pendingVol += Math.random() * 0.5;
       }
 
-      if (now - lastCommitAt >= 100) {
-        lastCommitAt = now;
+      // Commit to React state at ~10 Hz
+      if (now - lastCommitAt < 100) return;
+      lastCommitAt = now;
 
-        const newPrice = priceRef.current;
-        if (newPrice > dayHighRef.current) dayHighRef.current = newPrice;
-        if (newPrice < dayLowRef.current)  dayLowRef.current  = newPrice;
+      const newPrice = priceRef.current;
+      if (newPrice > dayHighRef.current) dayHighRef.current = newPrice;
+      if (newPrice < dayLowRef.current)  dayLowRef.current  = newPrice;
 
-        const localHigh = pendingHigh;
-        const localLow  = pendingLow;
-        const localVol  = pendingVol;
-        const shouldNewCandle = now - lastCandleAt >= CANDLE_DURATION_MS;
+      const lH = pendingHigh, lL = pendingLow, lV = pendingVol;
+      const newCandle = now - lastCandleAt >= candleMs;
 
-        if (shouldNewCandle) {
-          lastCandleAt = now;
-          volumeRef.current += localVol;
+      if (newCandle) {
+        lastCandleAt = now;
+        volumeRef.current += lV;
+        pendingVol = 0;
+
+        setCandles((prev) => {
+          if (prev.length === 0) return prev;
+          const arr  = prev.slice();
+          const last = arr[arr.length - 1];
+          // Close the current candle
+          arr[arr.length - 1] = {
+            ...last,
+            close: newPrice,
+            high:  Math.max(last.high, lH),
+            low:   Math.min(last.low,  lL),
+            volume: last.volume + lV,
+          };
+          // Open the next candle with the correct timestamp
+          // Use last candle time + intervalSec so spacing matches the timeframe
+          const nextTime = last.time + intervalSec;
+          arr.push({ time: nextTime, open: newPrice, high: newPrice, low: newPrice, close: newPrice, volume: 0 });
+          pendingHigh = newPrice;
+          pendingLow  = newPrice;
+          if (arr.length > 300) arr.shift();
+
+          feedCache.set(key, {
+            candles: arr, price: newPrice,
+            dayOpen: dayOpenRef.current, dayHigh: dayHighRef.current,
+            dayLow:  dayLowRef.current,  volume:  volumeRef.current,
+          });
+          return arr;
+        });
+      } else {
+        setCandles((prev) => {
+          if (prev.length === 0) return prev;
+          const arr  = prev.slice();
+          const last = arr[arr.length - 1];
+          arr[arr.length - 1] = {
+            ...last,
+            close: newPrice,
+            high:  Math.max(last.high, lH),
+            low:   Math.min(last.low,  lL),
+            volume: last.volume + lV,
+          };
           pendingVol = 0;
+          volumeRef.current += lV;
 
-          setCandles((prev) => {
-            if (prev.length === 0) return prev;
-            const updated = prev.slice();
-            const last = updated[updated.length - 1];
-            updated[updated.length - 1] = {
-              ...last,
-              close: newPrice,
-              high: Math.max(last.high, localHigh),
-              low:  Math.min(last.low,  localLow),
-              volume: last.volume + localVol,
-            };
-            const nowSec = Math.floor(Date.now() / 1000);
-            updated.push({
-              time: nowSec,
-              open: newPrice, high: newPrice, low: newPrice, close: newPrice,
-              volume: 0,
-            });
-            candleOpen  = newPrice;
-            pendingHigh = newPrice;
-            pendingLow  = newPrice;
-            if (updated.length > 300) updated.shift();
-
-            // ── Save to cache ──────────────────────────────────────────
-            feedCache.set(key, {
-              candles: updated,
-              price:   newPrice,
-              dayOpen: dayOpenRef.current,
-              dayHigh: dayHighRef.current,
-              dayLow:  dayLowRef.current,
-              volume:  volumeRef.current,
-            });
-
-            return updated;
+          feedCache.set(key, {
+            candles: arr, price: newPrice,
+            dayOpen: dayOpenRef.current, dayHigh: dayHighRef.current,
+            dayLow:  dayLowRef.current,  volume:  volumeRef.current,
           });
-        } else {
-          setCandles((prev) => {
-            if (prev.length === 0) return prev;
-            const updated = prev.slice();
-            const last = updated[updated.length - 1];
-            updated[updated.length - 1] = {
-              ...last,
-              close: newPrice,
-              high: Math.max(last.high, localHigh),
-              low:  Math.min(last.low,  localLow),
-              volume: last.volume + localVol,
-            };
-            pendingVol = 0;
-            volumeRef.current += localVol;
-
-            // ── Save to cache ──────────────────────────────────────────
-            feedCache.set(key, {
-              candles: updated,
-              price:   newPrice,
-              dayOpen: dayOpenRef.current,
-              dayHigh: dayHighRef.current,
-              dayLow:  dayLowRef.current,
-              volume:  volumeRef.current,
-            });
-
-            return updated;
-          });
-        }
-
-        const change    = newPrice - dayOpenRef.current;
-        const changePct = (change / dayOpenRef.current) * 100;
-        setTicker({
-          symbol: asset.symbol,
-          price: newPrice,
-          change24h: change,
-          changePercent: changePct,
-          high: dayHighRef.current,
-          low:  dayLowRef.current,
-          volume: volumeRef.current,
+          return arr;
         });
       }
+
+      const change = newPrice - dayOpenRef.current;
+      setTicker({
+        symbol: asset.symbol, price: newPrice,
+        change24h: change, changePercent: (change / dayOpenRef.current) * 100,
+        high: dayHighRef.current, low: dayLowRef.current, volume: volumeRef.current,
+      });
     };
 
-    raf = requestAnimationFrame(loop);
+    raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [symbol, interval]);
 
