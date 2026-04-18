@@ -181,7 +181,7 @@ const Trade = () => {
 
       {/* Chart area — full remaining space minus trade panel */}
       <div className="relative shrink-0 h-[300px] sm:h-[360px] bg-[hsl(var(--chart-bg))] overflow-hidden">
-        <LiveTradingChart ref={chartRef} candles={candles} pair={selectedSymbol} indicators={activeIndicators} />
+        <LiveTradingChart ref={chartRef} candles={candles} pair={selectedSymbol} indicators={activeIndicators} interval={interval} />
         {/* Chart overlay gradient at bottom */}
         <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-background/40 to-transparent pointer-events-none" />
       </div>
