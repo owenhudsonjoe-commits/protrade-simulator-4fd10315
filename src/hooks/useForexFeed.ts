@@ -167,7 +167,7 @@ export const useForexFeed = (symbol: string) => {
     const asset = TRADING_PAIRS.find((p) => p.symbol === symbol);
     if (!asset) return;
 
-    const CANDLE_DURATION_MS = 30000;
+    const CANDLE_DURATION_MS = 4000;
 
     let raf = 0;
     let lastTickAt = performance.now();
@@ -192,7 +192,7 @@ export const useForexFeed = (symbol: string) => {
       const dt = (now - lastTickAt) / 1000;
       if (dt >= 1 / 30) {
         lastTickAt = now;
-        const noise = gaussLive() * asset.volatility * 3 * priceRef.current * Math.sqrt(dt);
+        const noise = gaussLive() * asset.volatility * 1.5 * priceRef.current * Math.sqrt(dt);
         priceRef.current += noise;
         if (priceRef.current > pendingHigh) pendingHigh = priceRef.current;
         if (priceRef.current < pendingLow) pendingLow = priceRef.current;
