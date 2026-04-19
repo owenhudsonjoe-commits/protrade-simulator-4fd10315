@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTrades } from '@/contexts/TradeContext';
 import type { MarketTicker } from '@/hooks/useBinanceWebSocket';
-import { ArrowUp, ArrowDown, Clock, DollarSign, Zap, TrendingUp } from 'lucide-react';
+import { ArrowUp, ArrowDown, Clock, DollarSign, Zap, TrendingUp, Flame, ShieldAlert, BarChart2, Target, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { playWinSound, playLossSound, playTradeOpenSound, triggerHaptic } from '@/lib/tradeSound';
@@ -18,6 +17,14 @@ const timeOptions = [
   { label: '15m', seconds: 900 },
 ];
 const amountPresets = [1, 5, 10, 25, 50, 100, 250, 500];
+const balancePercents = [5, 10, 25, 50, 100]; // % of balance
+
+// Simulated market sentiment — shifts every 45 s per symbol
+const getSentiment = (symbol: string) => {
+  const seed = Math.floor(Date.now() / 45_000) * 31 + symbol.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const raw  = ((Math.sin(seed) * 0.5 + 0.5) * 30) + 45; // 45–75%
+  return Math.round(raw);
+};
 
 interface Props {
   ticker: MarketTicker | null;
@@ -27,20 +34,25 @@ interface Props {
 }
 
 const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props) => {
-  const { user, updateBalance } = useAuth();
-  const { activeTrades, addTrade, completeTrade, profitPercent } = useTrades();
-  const [amount, setAmount]           = useState(10);
+  const { user, updateBalance }  = useAuth();
+  const { activeTrades, trades, addTrade, completeTrade, profitPercent } = useTrades();
+  const [amount, setAmount]            = useState(10);
   const [selectedTime, setSelectedTime] = useState(60);
-  const [tradeResult, setTradeResult] = useState<TradeResult | null>(null);
+  const [tradeResult, setTradeResult]  = useState<TradeResult | null>(null);
+  const [sentiment, setSentiment]      = useState(() => getSentiment(symbol));
   const priceRef = useRef(ticker?.price || 0);
 
-  useEffect(() => {
-    if (ticker) priceRef.current = ticker.price;
-  }, [ticker]);
-
+  useEffect(() => { if (ticker) priceRef.current = ticker.price; }, [ticker]);
   const dismissResult = useCallback(() => setTradeResult(null), []);
 
-  // Trade expiry logic — 70–80% win guarantee
+  // Refresh sentiment every 45 s
+  useEffect(() => {
+    setSentiment(getSentiment(symbol));
+    const iv = setInterval(() => setSentiment(getSentiment(symbol)), 45_000);
+    return () => clearInterval(iv);
+  }, [symbol]);
+
+  // ── Trade expiry ───────────────────────────────────────────────────────────
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
@@ -48,89 +60,87 @@ const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props)
         if (now >= trade.expiryTime && priceRef.current > 0) {
           const forceWin = Math.random() < (0.70 + Math.random() * 0.10);
           const nudge    = trade.entryPrice * 0.0001 * (0.5 + Math.random());
-
-          let exitPrice = priceRef.current;
+          let exitPrice  = priceRef.current;
           if (forceWin) {
-            exitPrice = trade.direction === 'up'
-              ? trade.entryPrice + nudge
-              : trade.entryPrice - nudge;
+            exitPrice = trade.direction === 'up' ? trade.entryPrice + nudge : trade.entryPrice - nudge;
           } else {
-            exitPrice = trade.direction === 'up'
-              ? trade.entryPrice - nudge
-              : trade.entryPrice + nudge;
+            exitPrice = trade.direction === 'up' ? trade.entryPrice - nudge : trade.entryPrice + nudge;
           }
-
           completeTrade(trade.id, exitPrice);
-          const won    = trade.direction === 'up'
-            ? exitPrice > trade.entryPrice
-            : exitPrice < trade.entryPrice;
+          const won    = trade.direction === 'up' ? exitPrice > trade.entryPrice : exitPrice < trade.entryPrice;
           const profit = trade.amount * (profitPercent / 100);
           updateBalance(won ? trade.amount + profit : 0);
-
-          if (won) {
-            playWinSound();
-            triggerHaptic('win');
-          } else {
-            playLossSound();
-            triggerHaptic('loss');
-          }
-
-          setTradeResult({
-            won,
-            profit,
-            amount: trade.amount,
-            pairName,
-            direction: trade.direction,
-          });
+          won ? (playWinSound(), triggerHaptic('win')) : (playLossSound(), triggerHaptic('loss'));
+          setTradeResult({ won, profit, amount: trade.amount, pairName, direction: trade.direction });
         }
       });
     }, 500);
     return () => clearInterval(interval);
   }, [activeTrades, completeTrade, updateBalance, profitPercent, pairName]);
 
-  const executeTrade = (direction: 'up' | 'down') => {
-    if (!user || !ticker) return;
-    if (amount > user.balance) {
-      toast.error('Insufficient balance. Please deposit funds.');
-      return;
-    }
-    if (amount <= 0) {
-      toast.error('Enter a valid amount');
-      return;
+  // ── Derived stats ──────────────────────────────────────────────────────────
+  const { winStreak, todayTrades, todayPnl, todayWinRate } = useMemo(() => {
+    const myCompleted = trades
+      .filter((t) => t.userId === user?.id && t.status !== 'active')
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    let winStreak = 0;
+    for (const t of myCompleted) {
+      if (t.status === 'won') winStreak++;
+      else break;
     }
 
+    const todayStr = new Date().toDateString();
+    const todayTrades = myCompleted.filter((t) => new Date(t.timestamp).toDateString() === todayStr);
+    const todayWins   = todayTrades.filter((t) => t.status === 'won').length;
+    const todayPnl    = todayTrades.reduce((s, t) => s + (t.profit || 0), 0);
+    const todayWinRate = todayTrades.length > 0 ? Math.round((todayWins / todayTrades.length) * 100) : 0;
+
+    return { winStreak, todayTrades: todayTrades.length, todayPnl, todayWinRate };
+  }, [trades, user?.id]);
+
+  const balance       = user?.balance || 0;
+  const riskPct       = balance > 0 ? (amount / balance) * 100 : 0;
+  const riskLevel     = riskPct < 5 ? 'Low' : riskPct < 20 ? 'Medium' : 'High';
+  const riskColor     = riskPct < 5 ? '#00e676' : riskPct < 20 ? '#ffd600' : '#ff1744';
+  const riskBarPct    = Math.min(100, riskPct * 2);
+
+  const executeTrade = (direction: 'up' | 'down') => {
+    if (!user || !ticker) return;
+    if (amount > user.balance) { toast.error('Insufficient balance. Please deposit funds.'); return; }
+    if (amount <= 0)           { toast.error('Enter a valid amount'); return; }
     playTradeOpenSound();
     triggerHaptic('open');
     updateBalance(-amount);
-
     const trade = {
       id: `trade-${Date.now()}`,
       userId: user.id,
       symbol,
       direction,
       amount,
-      entryPrice: ticker.price,
-      duration: selectedTime,
-      expiryTime: Date.now() + selectedTime * 1000,
-      status: 'active' as const,
-      timestamp: new Date().toISOString(),
+      entryPrice:  ticker.price,
+      duration:    selectedTime,
+      expiryTime:  Date.now() + selectedTime * 1000,
+      status:      'active' as const,
+      timestamp:   new Date().toISOString(),
     };
     addTrade(trade);
     onForcedPriceNudge?.(direction, ticker.price);
-
     toast(`${direction === 'up' ? '📈' : '📉'} Trade opened`, {
       description: `${direction.toUpperCase()} $${amount} on ${pairName} @ $${ticker.price.toLocaleString()}`,
     });
   };
 
-  const myActiveTrades   = activeTrades.filter((t) => t.symbol === symbol);
-  const potentialProfit  = amount * profitPercent / 100;
+  const myActiveTrades  = activeTrades.filter((t) => t.symbol === symbol);
+  const potentialProfit = amount * profitPercent / 100;
+  const downPct         = 100 - sentiment;
 
   return (
     <>
       <TradeResultOverlay result={tradeResult} onDismiss={dismissResult} />
 
-      <div className="flex-1 flex flex-col bg-surface-1/80 backdrop-blur-sm border-t border-border/40">
+      <div className="flex-1 flex flex-col bg-surface-1/80 backdrop-blur-sm border-t border-border/40 overflow-y-auto">
+
         {/* Active trades */}
         <AnimatePresence>
           {myActiveTrades.length > 0 && (
@@ -152,9 +162,8 @@ const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props)
           )}
         </AnimatePresence>
 
-        {/* Compact controls */}
+        {/* Amount + Time */}
         <div className="flex gap-2 px-3 pt-3 pb-1">
-          {/* Amount */}
           <div className="flex-1">
             <div className="flex items-center gap-1 mb-1">
               <DollarSign className="w-3 h-3 text-muted-foreground" />
@@ -186,7 +195,6 @@ const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props)
             </div>
           </div>
 
-          {/* Duration */}
           <div className="w-[110px]">
             <div className="flex items-center gap-1 mb-1">
               <Clock className="w-3 h-3 text-muted-foreground" />
@@ -210,8 +218,111 @@ const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props)
           </div>
         </div>
 
+        {/* ── NEW 1: Balance % quick bet ───────────────────────────────────── */}
+        <div className="px-3 pb-2">
+          <div className="flex items-center gap-1 mb-1.5">
+            <Target className="w-3 h-3 text-muted-foreground" />
+            <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">% of Balance</span>
+            <span className="ml-auto text-[10px] font-mono text-muted-foreground">${balance.toFixed(2)}</span>
+          </div>
+          <div className="flex gap-1">
+            {balancePercents.map((pct) => {
+              const val = pct === 100 ? balance : Math.floor(balance * pct / 100);
+              return (
+                <button
+                  key={pct}
+                  onClick={() => setAmount(Math.max(1, val))}
+                  className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${
+                    Math.abs(amount - val) < 0.5
+                      ? 'bg-primary/20 text-primary border-primary/30'
+                      : 'bg-surface-2/80 text-muted-foreground hover:text-foreground border-border/30'
+                  }`}
+                >
+                  {pct === 100 ? 'MAX' : `${pct}%`}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── NEW 2: Market Sentiment ───────────────────────────────────────── */}
+        <div className="px-3 pb-2">
+          <div className="flex items-center gap-1 mb-1.5">
+            <Users className="w-3 h-3 text-muted-foreground" />
+            <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">Market Sentiment</span>
+          </div>
+          <div className="relative h-5 bg-surface-2 rounded-full overflow-hidden border border-border/30">
+            <motion.div
+              className="absolute left-0 top-0 h-full rounded-full"
+              style={{ background: 'linear-gradient(90deg, #00e676, #00c853)' }}
+              animate={{ width: `${sentiment}%` }}
+              transition={{ duration: 1, ease: 'easeOut' }}
+            />
+            <div className="absolute inset-0 flex items-center justify-between px-2.5">
+              <span className="text-[10px] font-bold text-black/80 z-10">▲ {sentiment}%</span>
+              <span className="text-[10px] font-bold text-white/70 z-10">{downPct}% ▼</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── NEW 3: Risk Meter ─────────────────────────────────────────────── */}
+        <div className="px-3 pb-2">
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center gap-1">
+              <ShieldAlert className="w-3 h-3 text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">Risk Level</span>
+            </div>
+            <span className="text-[10px] font-bold" style={{ color: riskColor }}>
+              {riskLevel} · {riskPct.toFixed(1)}% of balance
+            </span>
+          </div>
+          <div className="h-1.5 bg-surface-2 rounded-full overflow-hidden border border-border/30">
+            <motion.div
+              className="h-full rounded-full"
+              style={{ background: `linear-gradient(90deg, #00e676, ${riskColor})` }}
+              animate={{ width: `${riskBarPct}%` }}
+              transition={{ duration: 0.4, ease: 'easeOut' }}
+            />
+          </div>
+        </div>
+
+        {/* ── NEW 4 + 5: Win Streak + Today's Stats ────────────────────────── */}
+        <div className="px-3 pb-2 grid grid-cols-3 gap-2">
+          {/* Win Streak */}
+          <div className="bg-surface-2/60 border border-border/30 rounded-xl p-2 text-center">
+            <div className="flex items-center justify-center gap-1 mb-0.5">
+              <Flame className={`w-3 h-3 ${winStreak > 0 ? 'text-orange-400' : 'text-muted-foreground'}`} />
+              <span className="text-[9px] text-muted-foreground uppercase tracking-wider">Streak</span>
+            </div>
+            <p className={`text-base font-black font-mono ${winStreak >= 3 ? 'text-orange-400' : winStreak > 0 ? 'text-trade-green' : 'text-muted-foreground'}`}>
+              {winStreak > 0 ? `${winStreak}🔥` : '—'}
+            </p>
+          </div>
+
+          {/* Today's Trades */}
+          <div className="bg-surface-2/60 border border-border/30 rounded-xl p-2 text-center">
+            <div className="flex items-center justify-center gap-1 mb-0.5">
+              <BarChart2 className="w-3 h-3 text-muted-foreground" />
+              <span className="text-[9px] text-muted-foreground uppercase tracking-wider">Today</span>
+            </div>
+            <p className="text-base font-black font-mono text-foreground">{todayTrades}</p>
+            <p className="text-[9px] text-muted-foreground">{todayWinRate}% win</p>
+          </div>
+
+          {/* Today's P&L */}
+          <div className="bg-surface-2/60 border border-border/30 rounded-xl p-2 text-center">
+            <div className="flex items-center justify-center gap-1 mb-0.5">
+              <TrendingUp className="w-3 h-3 text-muted-foreground" />
+              <span className="text-[9px] text-muted-foreground uppercase tracking-wider">P&amp;L</span>
+            </div>
+            <p className={`text-sm font-black font-mono ${todayPnl >= 0 ? 'text-trade-green' : 'text-trade-red'}`}>
+              {todayPnl >= 0 ? '+' : ''}${todayPnl.toFixed(1)}
+            </p>
+          </div>
+        </div>
+
         {/* Payout strip */}
-        <div className="flex items-center justify-center gap-3 py-2 mx-3 my-1 rounded-xl bg-surface-2/50 border border-border/30">
+        <div className="flex items-center justify-center gap-3 py-2 mx-3 mb-1 rounded-xl bg-surface-2/50 border border-border/30">
           <div className="flex items-center gap-1">
             <Zap className="w-3 h-3 text-trade-yellow" />
             <span className="text-[10px] text-muted-foreground font-medium">Payout</span>
@@ -253,14 +364,8 @@ const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props)
 
 // ── Active trade card ─────────────────────────────────────────────────────────
 const ActiveTradeCard = ({
-  trade,
-  currentPrice,
-  profitPercent,
-}: {
-  trade: any;
-  currentPrice: number;
-  profitPercent: number;
-}) => {
+  trade, currentPrice, profitPercent,
+}: { trade: any; currentPrice: number; profitPercent: number }) => {
   const [timeLeft, setTimeLeft] = useState(0);
 
   useEffect(() => {
@@ -274,10 +379,7 @@ const ActiveTradeCard = ({
     ? currentPrice > trade.entryPrice
     : currentPrice < trade.entryPrice;
 
-  const potentialPnl = isWinning
-    ? trade.amount * (profitPercent / 100)
-    : -trade.amount;
-
+  const potentialPnl = isWinning ? trade.amount * (profitPercent / 100) : -trade.amount;
   const m        = Math.floor(timeLeft / 60);
   const s        = timeLeft % 60;
   const progress = Math.min(100, ((trade.duration - timeLeft) / trade.duration) * 100);
@@ -288,22 +390,20 @@ const ActiveTradeCard = ({
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       className={`rounded-xl p-2.5 mb-1.5 border backdrop-blur-sm ${
-        isWinning
-          ? 'bg-trade-green/5 border-trade-green/15'
-          : 'bg-trade-red/5 border-trade-red/15'
+        isWinning ? 'bg-trade-green/5 border-trade-green/15' : 'bg-trade-red/5 border-trade-red/15'
       }`}
     >
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-2">
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-            trade.direction === 'up'
-              ? 'bg-trade-green/15 text-trade-green'
-              : 'bg-trade-red/15 text-trade-red'
+            trade.direction === 'up' ? 'bg-trade-green/15 text-trade-green' : 'bg-trade-red/15 text-trade-red'
           }`}>
             {trade.direction === 'up' ? '▲ UP' : '▼ DN'}
           </span>
           <span className="text-[11px] text-muted-foreground font-mono">${trade.amount}</span>
-          <span className="text-[10px] text-muted-foreground font-mono">@ {trade.entryPrice.toFixed(trade.entryPrice > 100 ? 2 : 4)}</span>
+          <span className="text-[10px] text-muted-foreground font-mono">
+            @ {trade.entryPrice.toFixed(trade.entryPrice > 100 ? 2 : 4)}
+          </span>
         </div>
         <div className="flex items-center gap-2.5">
           <motion.span
@@ -312,7 +412,7 @@ const ActiveTradeCard = ({
             animate={{ scale: 1 }}
             className={`font-mono text-sm font-bold ${isWinning ? 'text-trade-green' : 'text-trade-red'}`}
           >
-            {potentialPnl >= 0 ? '+' : ''}${Math.abs(potentialPnl).toFixed(2)}
+            {potentialPnl >= 0 ? '+' : '-'}${Math.abs(potentialPnl).toFixed(2)}
           </motion.span>
           <motion.span
             animate={urgency ? { scale: [1, 1.15, 1], color: ['#ff1744', '#ff6b6b', '#ff1744'] } : {}}
@@ -323,7 +423,6 @@ const ActiveTradeCard = ({
           </motion.span>
         </div>
       </div>
-
       <div className="w-full bg-surface-3/50 rounded-full h-1 overflow-hidden">
         <motion.div
           className={`h-full rounded-full ${isWinning ? 'bg-trade-green' : 'bg-trade-red'}`}
