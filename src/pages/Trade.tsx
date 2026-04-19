@@ -8,6 +8,7 @@ import AssetSelector from '@/components/AssetSelector';
 import AssetCarousel from '@/components/AssetCarousel';
 import BottomNav from '@/components/BottomNav';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTrades } from '@/contexts/TradeContext';
 import { TrendingUp, TrendingDown, ChevronDown, Wallet, Clock, BarChart2, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -16,6 +17,7 @@ const timeframes = ['1m', '5m', '15m', '1h'];
 
 const Trade = () => {
   const { user, logout } = useAuth();
+  const { activeTrades } = useTrades();
   const [selectedSymbol, setSelectedSymbol] = useState('XAUUSD');
   const [showAssetSelector, setShowAssetSelector] = useState(false);
   const [allTickers, setAllTickers] = useState<Record<string, MarketTicker>>({});
@@ -202,7 +204,14 @@ const Trade = () => {
 
         {/* Chart canvas */}
         <div className="absolute inset-0 z-10">
-          <LiveTradingChart ref={chartRef} candles={candles} pair={selectedSymbol} indicators={activeIndicators} interval={interval} />
+          <LiveTradingChart
+            ref={chartRef}
+            candles={candles}
+            pair={selectedSymbol}
+            indicators={activeIndicators}
+            interval={interval}
+            activeTrades={activeTrades.filter((t) => t.symbol === selectedSymbol)}
+          />
         </div>
 
         {/* Bottom fade — blends chart into page */}

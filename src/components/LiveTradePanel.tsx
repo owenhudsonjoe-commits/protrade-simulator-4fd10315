@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTrades } from '@/contexts/TradeContext';
@@ -7,13 +7,14 @@ import { ArrowUp, ArrowDown, Clock, DollarSign, Zap, TrendingUp } from 'lucide-r
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { playWinSound, playLossSound, playTradeOpenSound, triggerHaptic } from '@/lib/tradeSound';
-import { useRef } from 'react';
+import TradeResultOverlay from '@/components/TradeResultOverlay';
+import type { TradeResult } from '@/components/TradeResultOverlay';
 
 const timeOptions = [
   { label: '30s', seconds: 30 },
-  { label: '1m', seconds: 60 },
-  { label: '3m', seconds: 180 },
-  { label: '5m', seconds: 300 },
+  { label: '1m',  seconds: 60 },
+  { label: '3m',  seconds: 180 },
+  { label: '5m',  seconds: 300 },
   { label: '15m', seconds: 900 },
 ];
 const amountPresets = [1, 5, 10, 25, 50, 100, 250, 500];
@@ -28,25 +29,27 @@ interface Props {
 const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props) => {
   const { user, updateBalance } = useAuth();
   const { activeTrades, addTrade, completeTrade, profitPercent } = useTrades();
-  const [amount, setAmount] = useState(10);
+  const [amount, setAmount]           = useState(10);
   const [selectedTime, setSelectedTime] = useState(60);
+  const [tradeResult, setTradeResult] = useState<TradeResult | null>(null);
   const priceRef = useRef(ticker?.price || 0);
 
   useEffect(() => {
     if (ticker) priceRef.current = ticker.price;
   }, [ticker]);
 
-  // Trade expiry logic — 70-80% guaranteed win
+  const dismissResult = useCallback(() => setTradeResult(null), []);
+
+  // Trade expiry logic — 70–80% win guarantee
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
       activeTrades.forEach((trade) => {
         if (now >= trade.expiryTime && priceRef.current > 0) {
-          const winChance = 0.70 + Math.random() * 0.10;
-          const forceWin = Math.random() < winChance;
+          const forceWin = Math.random() < (0.70 + Math.random() * 0.10);
+          const nudge    = trade.entryPrice * 0.0001 * (0.5 + Math.random());
 
           let exitPrice = priceRef.current;
-          const nudge = trade.entryPrice * 0.0001 * (0.5 + Math.random());
           if (forceWin) {
             exitPrice = trade.direction === 'up'
               ? trade.entryPrice + nudge
@@ -58,7 +61,7 @@ const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props)
           }
 
           completeTrade(trade.id, exitPrice);
-          const won = trade.direction === 'up'
+          const won    = trade.direction === 'up'
             ? exitPrice > trade.entryPrice
             : exitPrice < trade.entryPrice;
           const profit = trade.amount * (profitPercent / 100);
@@ -67,16 +70,18 @@ const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props)
           if (won) {
             playWinSound();
             triggerHaptic('win');
-            toast.success(`🎉 Profit +$${profit.toFixed(2)}`, {
-              description: `${trade.direction.toUpperCase()} ${pairName}`,
-            });
           } else {
             playLossSound();
             triggerHaptic('loss');
-            toast.error(`Loss -$${trade.amount.toFixed(2)}`, {
-              description: `${trade.direction.toUpperCase()} ${pairName}`,
-            });
           }
+
+          setTradeResult({
+            won,
+            profit,
+            amount: trade.amount,
+            pairName,
+            direction: trade.direction,
+          });
         }
       });
     }, 500);
@@ -96,8 +101,8 @@ const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props)
 
     playTradeOpenSound();
     triggerHaptic('open');
-
     updateBalance(-amount);
+
     const trade = {
       id: `trade-${Date.now()}`,
       userId: user.id,
@@ -118,134 +123,151 @@ const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props)
     });
   };
 
-  const myActiveTrades = activeTrades.filter((t) => t.symbol === symbol);
-  const potentialProfit = amount * profitPercent / 100;
+  const myActiveTrades   = activeTrades.filter((t) => t.symbol === symbol);
+  const potentialProfit  = amount * profitPercent / 100;
 
   return (
-    <div className="flex-1 flex flex-col bg-surface-1/80 backdrop-blur-sm border-t border-border/40">
-      {/* Active trades */}
-      <AnimatePresence>
-        {myActiveTrades.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="px-3 pt-2"
+    <>
+      <TradeResultOverlay result={tradeResult} onDismiss={dismissResult} />
+
+      <div className="flex-1 flex flex-col bg-surface-1/80 backdrop-blur-sm border-t border-border/40">
+        {/* Active trades */}
+        <AnimatePresence>
+          {myActiveTrades.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="px-3 pt-2"
+            >
+              {myActiveTrades.map((trade) => (
+                <ActiveTradeCard
+                  key={trade.id}
+                  trade={trade}
+                  currentPrice={ticker?.price || 0}
+                  profitPercent={profitPercent}
+                />
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Compact controls */}
+        <div className="flex gap-2 px-3 pt-3 pb-1">
+          {/* Amount */}
+          <div className="flex-1">
+            <div className="flex items-center gap-1 mb-1">
+              <DollarSign className="w-3 h-3 text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">Amount</span>
+            </div>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-mono">$</span>
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(Number(e.target.value))}
+                className="w-full bg-surface-2 border border-border/50 rounded-xl pl-7 pr-3 py-2.5 text-center font-mono text-base font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+              />
+            </div>
+            <div className="flex gap-1 mt-1.5 flex-wrap">
+              {amountPresets.slice(0, 6).map((a) => (
+                <button
+                  key={a}
+                  onClick={() => setAmount(a)}
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all ${
+                    amount === a
+                      ? 'bg-primary/20 text-primary border border-primary/30'
+                      : 'bg-surface-3/50 text-muted-foreground hover:text-foreground border border-transparent'
+                  }`}
+                >
+                  ${a}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Duration */}
+          <div className="w-[110px]">
+            <div className="flex items-center gap-1 mb-1">
+              <Clock className="w-3 h-3 text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">Time</span>
+            </div>
+            <div className="grid grid-cols-2 gap-1">
+              {timeOptions.map((t) => (
+                <button
+                  key={t.seconds}
+                  onClick={() => setSelectedTime(t.seconds)}
+                  className={`py-2 rounded-lg text-[11px] font-bold transition-all ${
+                    selectedTime === t.seconds
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'bg-surface-2 text-muted-foreground hover:text-foreground border border-border/30'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Payout strip */}
+        <div className="flex items-center justify-center gap-3 py-2 mx-3 my-1 rounded-xl bg-surface-2/50 border border-border/30">
+          <div className="flex items-center gap-1">
+            <Zap className="w-3 h-3 text-trade-yellow" />
+            <span className="text-[10px] text-muted-foreground font-medium">Payout</span>
+            <span className="text-xs font-bold text-primary">{profitPercent}%</span>
+          </div>
+          <span className="w-px h-3.5 bg-border/40" />
+          <div className="flex items-center gap-1">
+            <TrendingUp className="w-3 h-3 text-trade-green" />
+            <span className="text-[10px] text-muted-foreground font-medium">Profit</span>
+            <span className="text-xs font-mono font-bold text-trade-green">+${potentialProfit.toFixed(2)}</span>
+          </div>
+        </div>
+
+        {/* Trade buttons */}
+        <div className="flex gap-2.5 px-3 pb-3">
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={() => executeTrade('up')}
+            disabled={!ticker || activeTrades.length >= 5}
+            className="flex-1 h-14 rounded-xl gradient-green-btn text-white font-extrabold text-base flex items-center justify-center gap-2 glow-green disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 shadow-lg"
           >
-            {myActiveTrades.map((trade) => (
-              <ActiveTradeCard key={trade.id} trade={trade} currentPrice={ticker?.price || 0} profitPercent={profitPercent} />
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Compact controls */}
-      <div className="flex gap-2 px-3 pt-3 pb-1">
-        {/* Amount */}
-        <div className="flex-1">
-          <div className="flex items-center gap-1 mb-1">
-            <DollarSign className="w-3 h-3 text-muted-foreground" />
-            <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">Amount</span>
-          </div>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-mono">$</span>
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(Number(e.target.value))}
-              className="w-full bg-surface-2 border border-border/50 rounded-xl pl-7 pr-3 py-2.5 text-center font-mono text-base font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
-            />
-          </div>
-          <div className="flex gap-1 mt-1.5 flex-wrap">
-            {amountPresets.slice(0, 6).map((a) => (
-              <button
-                key={a}
-                onClick={() => setAmount(a)}
-                className={`px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all ${
-                  amount === a
-                    ? 'bg-primary/20 text-primary border border-primary/30'
-                    : 'bg-surface-3/50 text-muted-foreground hover:text-foreground border border-transparent'
-                }`}
-              >
-                ${a}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Duration */}
-        <div className="w-[110px]">
-          <div className="flex items-center gap-1 mb-1">
-            <Clock className="w-3 h-3 text-muted-foreground" />
-            <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">Time</span>
-          </div>
-          <div className="grid grid-cols-2 gap-1">
-            {timeOptions.map((t) => (
-              <button
-                key={t.seconds}
-                onClick={() => setSelectedTime(t.seconds)}
-                className={`py-2 rounded-lg text-[11px] font-bold transition-all ${
-                  selectedTime === t.seconds
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'bg-surface-2 text-muted-foreground hover:text-foreground border border-border/30'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+            <ArrowUp className="w-5 h-5" strokeWidth={3} />
+            UP
+          </motion.button>
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={() => executeTrade('down')}
+            disabled={!ticker || activeTrades.length >= 5}
+            className="flex-1 h-14 rounded-xl gradient-red-btn text-white font-extrabold text-base flex items-center justify-center gap-2 glow-red disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 shadow-lg"
+          >
+            <ArrowDown className="w-5 h-5" strokeWidth={3} />
+            DOWN
+          </motion.button>
         </div>
       </div>
-
-      {/* Payout strip */}
-      <div className="flex items-center justify-center gap-3 py-2 mx-3 my-1 rounded-xl bg-surface-2/50 border border-border/30">
-        <div className="flex items-center gap-1">
-          <Zap className="w-3 h-3 text-trade-yellow" />
-          <span className="text-[10px] text-muted-foreground font-medium">Payout</span>
-          <span className="text-xs font-bold text-primary">{profitPercent}%</span>
-        </div>
-        <span className="w-px h-3.5 bg-border/40" />
-        <div className="flex items-center gap-1">
-          <TrendingUp className="w-3 h-3 text-trade-green" />
-          <span className="text-[10px] text-muted-foreground font-medium">Profit</span>
-          <span className="text-xs font-mono font-bold text-trade-green">+${potentialProfit.toFixed(2)}</span>
-        </div>
-      </div>
-
-      {/* Trade buttons — large Olymp Trade style */}
-      <div className="flex gap-2.5 px-3 pb-3">
-        <motion.button
-          whileTap={{ scale: 0.96 }}
-          onClick={() => executeTrade('up')}
-          disabled={!ticker || activeTrades.length >= 5}
-          className="flex-1 h-14 rounded-xl gradient-green-btn text-white font-extrabold text-base flex items-center justify-center gap-2 glow-green disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 shadow-lg"
-        >
-          <ArrowUp className="w-5 h-5" strokeWidth={3} />
-          UP
-        </motion.button>
-        <motion.button
-          whileTap={{ scale: 0.96 }}
-          onClick={() => executeTrade('down')}
-          disabled={!ticker || activeTrades.length >= 5}
-          className="flex-1 h-14 rounded-xl gradient-red-btn text-white font-extrabold text-base flex items-center justify-center gap-2 glow-red disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 shadow-lg"
-        >
-          <ArrowDown className="w-5 h-5" strokeWidth={3} />
-          DOWN
-        </motion.button>
-      </div>
-    </div>
+    </>
   );
 };
 
-const ActiveTradeCard = ({ trade, currentPrice, profitPercent }: { trade: any; currentPrice: number; profitPercent: number }) => {
+// ── Active trade card ─────────────────────────────────────────────────────────
+const ActiveTradeCard = ({
+  trade,
+  currentPrice,
+  profitPercent,
+}: {
+  trade: any;
+  currentPrice: number;
+  profitPercent: number;
+}) => {
   const [timeLeft, setTimeLeft] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((trade.expiryTime - Date.now()) / 1000));
-      setTimeLeft(remaining);
+    const iv = setInterval(() => {
+      setTimeLeft(Math.max(0, Math.ceil((trade.expiryTime - Date.now()) / 1000)));
     }, 100);
-    return () => clearInterval(interval);
+    return () => clearInterval(iv);
   }, [trade.expiryTime]);
 
   const isWinning = trade.direction === 'up'
@@ -256,9 +278,10 @@ const ActiveTradeCard = ({ trade, currentPrice, profitPercent }: { trade: any; c
     ? trade.amount * (profitPercent / 100)
     : -trade.amount;
 
-  const m = Math.floor(timeLeft / 60);
-  const s = timeLeft % 60;
+  const m        = Math.floor(timeLeft / 60);
+  const s        = timeLeft % 60;
   const progress = Math.min(100, ((trade.duration - timeLeft) / trade.duration) * 100);
+  const urgency  = timeLeft <= 5 && timeLeft > 0;
 
   return (
     <motion.div
@@ -280,6 +303,7 @@ const ActiveTradeCard = ({ trade, currentPrice, profitPercent }: { trade: any; c
             {trade.direction === 'up' ? '▲ UP' : '▼ DN'}
           </span>
           <span className="text-[11px] text-muted-foreground font-mono">${trade.amount}</span>
+          <span className="text-[10px] text-muted-foreground font-mono">@ {trade.entryPrice.toFixed(trade.entryPrice > 100 ? 2 : 4)}</span>
         </div>
         <div className="flex items-center gap-2.5">
           <motion.span
@@ -288,13 +312,18 @@ const ActiveTradeCard = ({ trade, currentPrice, profitPercent }: { trade: any; c
             animate={{ scale: 1 }}
             className={`font-mono text-sm font-bold ${isWinning ? 'text-trade-green' : 'text-trade-red'}`}
           >
-            {potentialPnl >= 0 ? '+' : ''}{potentialPnl.toFixed(2)}
+            {potentialPnl >= 0 ? '+' : ''}${Math.abs(potentialPnl).toFixed(2)}
           </motion.span>
-          <span className="font-mono text-xs font-bold text-foreground bg-surface-3/60 px-1.5 py-0.5 rounded-md">
+          <motion.span
+            animate={urgency ? { scale: [1, 1.15, 1], color: ['#ff1744', '#ff6b6b', '#ff1744'] } : {}}
+            transition={urgency ? { repeat: Infinity, duration: 0.6 } : {}}
+            className="font-mono text-xs font-bold text-foreground bg-surface-3/60 px-1.5 py-0.5 rounded-md tabular-nums"
+          >
             {m}:{s.toString().padStart(2, '0')}
-          </span>
+          </motion.span>
         </div>
       </div>
+
       <div className="w-full bg-surface-3/50 rounded-full h-1 overflow-hidden">
         <motion.div
           className={`h-full rounded-full ${isWinning ? 'bg-trade-green' : 'bg-trade-red'}`}
