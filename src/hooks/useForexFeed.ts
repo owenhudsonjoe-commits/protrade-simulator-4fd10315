@@ -73,8 +73,8 @@ interface IntervalConfig {
   tickVol: number;
 }
 const INTERVAL_CONFIG: Record<string, IntervalConfig> = {
-  '1m':  { intervalSec: 60,   candleMs: 4_000,   tickVol: 6 },
-  '5m':  { intervalSec: 300,  candleMs: 20_000,  tickVol: 5 },
+  '1m':  { intervalSec: 60,   candleMs: 7_000,   tickVol: 6 },
+  '5m':  { intervalSec: 300,  candleMs: 32_000,  tickVol: 5 },
   '15m': { intervalSec: 900,  candleMs: 60_000,  tickVol: 4 },
   '1h':  { intervalSec: 3600, candleMs: 240_000, tickVol: 3 },
 };
