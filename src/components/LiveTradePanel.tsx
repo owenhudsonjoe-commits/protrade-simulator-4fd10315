@@ -38,6 +38,7 @@ const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props)
   const { activeTrades, trades, addTrade, completeTrade, profitPercent } = useTrades();
   const [amount, setAmount]            = useState(10);
   const [selectedTime, setSelectedTime] = useState(60);
+  const [coefficient, setCoefficient]  = useState(0.5);
   const [tradeResult, setTradeResult]  = useState<TradeResult | null>(null);
   const [sentiment, setSentiment]      = useState(() => getSentiment(symbol));
   const priceRef = useRef(ticker?.price || 0);
@@ -215,6 +216,29 @@ const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props)
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+
+        {/* ── Coefficient selector (decorative) ───────────────────────────── */}
+        <div className="px-3 pb-2">
+          <div className="flex items-center gap-1 mb-1.5">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">Coefficient</span>
+            <span className="ml-auto font-mono text-[11px] font-bold text-primary">{coefficient.toFixed(1)}×</span>
+          </div>
+          <div className="flex gap-1">
+            {[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9].map((v) => (
+              <button
+                key={v}
+                onClick={() => setCoefficient(v)}
+                className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${
+                  coefficient === v
+                    ? 'bg-primary/20 text-primary border-primary/40 shadow-sm'
+                    : 'bg-surface-2/70 text-muted-foreground hover:text-foreground border-border/30'
+                }`}
+              >
+                {v.toFixed(1)}
+              </button>
+            ))}
           </div>
         </div>
 
