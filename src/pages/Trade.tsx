@@ -179,11 +179,36 @@ const Trade = () => {
         )}
       </AnimatePresence>
 
-      {/* Chart area — full remaining space minus trade panel */}
-      <div className="relative shrink-0 h-[300px] sm:h-[360px] bg-[hsl(var(--chart-bg))] overflow-hidden">
-        <LiveTradingChart ref={chartRef} candles={candles} pair={selectedSymbol} indicators={activeIndicators} interval={interval} />
-        {/* Chart overlay gradient at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-background/40 to-transparent pointer-events-none" />
+      {/* Chart area */}
+      <div className="relative shrink-0 h-[300px] sm:h-[360px] overflow-hidden" style={{ background: '#000000' }}>
+
+        {/* Dot grid — subtle, like the reference image */}
+        <div
+          className="absolute inset-0 pointer-events-none z-0"
+          style={{
+            backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px)',
+            backgroundSize: '22px 22px',
+          }}
+        />
+
+        {/* Ambient green glow — radiates upward from the bottom like light from candles */}
+        <div
+          className="absolute inset-0 pointer-events-none z-0"
+          style={{
+            background: 'radial-gradient(ellipse 80% 40% at 50% 110%, rgba(0,230,118,0.07) 0%, transparent 70%)',
+            mixBlendMode: 'screen',
+          }}
+        />
+
+        {/* Chart canvas */}
+        <div className="absolute inset-0 z-10">
+          <LiveTradingChart ref={chartRef} candles={candles} pair={selectedSymbol} indicators={activeIndicators} interval={interval} />
+        </div>
+
+        {/* Bottom fade — blends chart into page */}
+        <div className="absolute bottom-0 left-0 right-0 h-6 z-20 pointer-events-none"
+          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)' }}
+        />
       </div>
 
       {/* Trade panel */}

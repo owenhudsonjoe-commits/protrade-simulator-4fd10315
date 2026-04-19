@@ -23,16 +23,18 @@ const calcSMA = (data: CandleData[], period: number) => {
   return result;
 };
 
-// Visible bars per timeframe — controls zoom level
-// 1m = fewest bars (zoomed in), 1h = most bars (zoomed out)
-const VISIBLE_BARS: Record<string, number> = {
-  '1m':  30,   // fully zoomed in — wide candles, short window
-  '5m':  60,   // slightly zoomed out
-  '15m': 100,  // more zoomed out
-  '1h':  160,  // fully zoomed out — narrow candles, long window
-};
+// Neon glow colours
+const GREEN  = '#00e676';
+const RED    = '#ff1744';
+const GREEN2 = '#00c853';  // slightly deeper for wick
+const RED2   = '#d50000';
 
-// Bar spacing per timeframe — wider on 1m, narrower on 1h
+const VISIBLE_BARS: Record<string, number> = {
+  '1m':  30,
+  '5m':  60,
+  '15m': 100,
+  '1h':  160,
+};
 const BAR_SPACING: Record<string, number> = {
   '1m':  14,
   '5m':  9,
@@ -41,20 +43,18 @@ const BAR_SPACING: Record<string, number> = {
 };
 
 const LiveTradingChart = forwardRef<ChartHandle, Props>(({ candles, pair, indicators, interval }, ref) => {
-  const containerRef      = useRef<HTMLDivElement>(null);
-  const chartRef          = useRef<any>(null);
-  const candleSeriesRef   = useRef<any>(null);
-  const volumeSeriesRef   = useRef<any>(null);
-  const indicatorRefs     = useRef<any[]>([]);
-
-  // What's currently rendered on the chart
-  const loadedKeyRef      = useRef('');   // `${pair}-${interval}` of last full load
-  const lastTimeRef       = useRef(0);    // time of last candle in chart
-  const prevIndKeyRef     = useRef('');
+  const containerRef    = useRef<HTMLDivElement>(null);
+  const chartRef        = useRef<any>(null);
+  const candleSeriesRef = useRef<any>(null);
+  const volumeSeriesRef = useRef<any>(null);
+  const indicatorRefs   = useRef<any[]>([]);
+  const loadedKeyRef    = useRef('');
+  const lastTimeRef     = useRef(0);
+  const prevIndKeyRef   = useRef('');
 
   useImperativeHandle(ref, () => ({ nudgeChart: () => {} }));
 
-  // ── Create chart once per pair ─────────────────────────────────────────────
+  // ── Create chart ────────────────────────────────────────────────────────────
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -65,30 +65,41 @@ const LiveTradingChart = forwardRef<ChartHandle, Props>(({ candles, pair, indica
 
     const chart = createChart(container, {
       layout: {
-        background: { type: ColorType.Solid, color: '#0a0c0f' },
-        textColor: '#6b7280',
+        background: { type: ColorType.Solid, color: '#000000' },
+        textColor: 'rgba(255,255,255,0.25)',
         fontSize: 10,
+        fontFamily: "'JetBrains Mono', monospace",
       },
       grid: {
-        vertLines: { color: 'rgba(42,46,57,0.35)' },
-        horzLines: { color: 'rgba(42,46,57,0.35)' },
+        vertLines: { color: 'rgba(255,255,255,0.03)' },
+        horzLines: { color: 'rgba(255,255,255,0.03)' },
       },
       crosshair: {
         mode: 0,
-        vertLine: { color: 'rgba(41,98,255,0.5)', width: 1, style: 2, labelBackgroundColor: '#2962ff' },
-        horzLine: { color: 'rgba(41,98,255,0.5)', width: 1, style: 2, labelBackgroundColor: '#2962ff' },
+        vertLine: {
+          color: 'rgba(0,230,118,0.4)',
+          width: 1,
+          style: 2,
+          labelBackgroundColor: '#00c853',
+        },
+        horzLine: {
+          color: 'rgba(0,230,118,0.4)',
+          width: 1,
+          style: 2,
+          labelBackgroundColor: '#00c853',
+        },
       },
       rightPriceScale: {
-        borderColor: 'rgba(42,46,57,0.5)',
+        borderColor: 'rgba(255,255,255,0.06)',
         scaleMargins: { top: 0.06, bottom: 0.22 },
         entireTextOnly: true,
       },
       timeScale: {
-        borderColor: 'rgba(42,46,57,0.5)',
+        borderColor: 'rgba(255,255,255,0.06)',
         timeVisible: true,
         secondsVisible: false,
         rightOffset: 5,
-        barSpacing: 8,
+        barSpacing: BAR_SPACING[interval] ?? 8,
         minBarSpacing: 2,
       },
       handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
@@ -98,22 +109,28 @@ const LiveTradingChart = forwardRef<ChartHandle, Props>(({ candles, pair, indica
     });
 
     const cs = chart.addCandlestickSeries({
-      upColor: '#22c55e', downColor: '#ef4444',
-      borderUpColor: '#22c55e', borderDownColor: '#ef4444',
-      wickUpColor: '#22c55e99', wickDownColor: '#ef444499',
-      priceLineVisible: true, priceLineWidth: 1,
-      priceLineColor: '#3b82f6', priceLineStyle: 2,
+      upColor:          GREEN,
+      downColor:        RED,
+      borderUpColor:    GREEN,
+      borderDownColor:  RED,
+      wickUpColor:      GREEN2,
+      wickDownColor:    RED2,
+      priceLineVisible: true,
+      priceLineWidth:   1,
+      priceLineColor:   'rgba(0,230,118,0.5)',
+      priceLineStyle:   2,
       lastValueVisible: true,
     });
 
     const vs = chart.addHistogramSeries({
-      priceFormat: { type: 'volume' },
-      priceScaleId: 'volume',
-      lastValueVisible: false, priceLineVisible: false,
+      priceFormat:      { type: 'volume' },
+      priceScaleId:     'volume',
+      lastValueVisible: false,
+      priceLineVisible: false,
     });
-    chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.85, bottom: 0 } });
+    chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.88, bottom: 0 } });
 
-    chartRef.current      = chart;
+    chartRef.current        = chart;
     candleSeriesRef.current = cs;
     volumeSeriesRef.current = vs;
     indicatorRefs.current   = [];
@@ -135,7 +152,7 @@ const LiveTradingChart = forwardRef<ChartHandle, Props>(({ candles, pair, indica
     };
   }, [pair]);
 
-  // ── Update data ────────────────────────────────────────────────────────────
+  // ── Update data ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const chart = chartRef.current;
     const cs    = candleSeriesRef.current;
@@ -145,18 +162,18 @@ const LiveTradingChart = forwardRef<ChartHandle, Props>(({ candles, pair, indica
     const currentKey  = `${pair}-${interval}`;
     const needFullLoad = loadedKeyRef.current !== currentKey;
 
+    const volColor = (c: CandleData) =>
+      c.close >= c.open ? 'rgba(0,230,118,0.18)' : 'rgba(255,23,68,0.18)';
+
     try {
       if (needFullLoad) {
-        // ── Full load ──────────────────────────────────────────────────────
         cs.setData(candles.map((c) => ({
           time: c.time as any, open: c.open, high: c.high, low: c.low, close: c.close,
         })));
         vs.setData(candles.map((c) => ({
-          time: c.time as any, value: c.volume,
-          color: c.close >= c.open ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
+          time: c.time as any, value: c.volume, color: volColor(c),
         })));
 
-        // Apply bar spacing and visible range for this timeframe
         const bars    = VISIBLE_BARS[interval] ?? 80;
         const spacing = BAR_SPACING[interval]  ?? 8;
         chart.timeScale().applyOptions({ barSpacing: spacing });
@@ -166,20 +183,15 @@ const LiveTradingChart = forwardRef<ChartHandle, Props>(({ candles, pair, indica
           chart.timeScale().fitContent();
         }
 
-        loadedKeyRef.current  = currentKey;
-        lastTimeRef.current   = candles[candles.length - 1].time;
+        loadedKeyRef.current = currentKey;
+        lastTimeRef.current  = candles[candles.length - 1].time;
 
-        // Rebuild indicators
         rebuildIndicators(chart, candles, indicators, indicatorRefs);
         prevIndKeyRef.current = indicators.join(',');
-
       } else {
-        // ── Incremental update ─────────────────────────────────────────────
         const last = candles[candles.length - 1];
-        const volColor = (c: CandleData) => c.close >= c.open ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)';
 
         if (last.time > lastTimeRef.current) {
-          // A new candle was appended — finalize the previous one first
           if (candles.length >= 2) {
             const prev = candles[candles.length - 2];
             cs.update({ time: prev.time as any, open: prev.open, high: prev.high, low: prev.low, close: prev.close });
@@ -189,12 +201,10 @@ const LiveTradingChart = forwardRef<ChartHandle, Props>(({ candles, pair, indica
           vs.update({ time: last.time as any, value: last.volume, color: volColor(last) });
           lastTimeRef.current = last.time;
         } else {
-          // Same candle ticking — just update in place
           cs.update({ time: last.time as any, open: last.open, high: last.high, low: last.low, close: last.close });
           vs.update({ time: last.time as any, value: last.volume, color: volColor(last) });
         }
 
-        // Rebuild indicators only when set changes
         const indKey = indicators.join(',');
         if (indKey !== prevIndKeyRef.current) {
           rebuildIndicators(chart, candles, indicators, indicatorRefs);
@@ -202,12 +212,20 @@ const LiveTradingChart = forwardRef<ChartHandle, Props>(({ candles, pair, indica
         }
       }
     } catch {
-      // On any error, force a full reload next cycle
       loadedKeyRef.current = '';
     }
   }, [candles, indicators, interval, pair]);
 
-  return <div ref={containerRef} className="absolute inset-0 w-full h-full" />;
+  return (
+    <div
+      ref={containerRef}
+      className="absolute inset-0 w-full h-full"
+      style={{
+        // Dual drop-shadow: green for the overall glow, gives the "bloom" effect
+        filter: 'drop-shadow(0 0 6px rgba(0,230,118,0.35)) drop-shadow(0 0 2px rgba(255,23,68,0.2))',
+      }}
+    />
+  );
 });
 
 function rebuildIndicators(
@@ -216,22 +234,20 @@ function rebuildIndicators(
   indicators: string[],
   refs: React.MutableRefObject<any[]>,
 ) {
-  // Remove existing indicator series
   refs.current.forEach((s) => { try { chart.removeSeries(s); } catch {} });
   refs.current = [];
-
   if (indicators.includes('MA7')) {
-    const s = chart.addLineSeries({ color: '#f59e0b', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+    const s = chart.addLineSeries({ color: '#ffd600', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
     s.setData(calcSMA(candles, 7));
     refs.current.push(s);
   }
   if (indicators.includes('MA25')) {
-    const s = chart.addLineSeries({ color: '#a855f7', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+    const s = chart.addLineSeries({ color: '#e040fb', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
     s.setData(calcSMA(candles, 25));
     refs.current.push(s);
   }
   if (indicators.includes('MA99')) {
-    const s = chart.addLineSeries({ color: '#06b6d4', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+    const s = chart.addLineSeries({ color: '#40c4ff', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
     s.setData(calcSMA(candles, 99));
     refs.current.push(s);
   }
