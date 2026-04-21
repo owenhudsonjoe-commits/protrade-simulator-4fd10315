@@ -3,9 +3,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import BottomNav from '@/components/BottomNav';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowDownToLine, Upload, Check, Copy, ScanSearch } from 'lucide-react';
+import { ArrowDownToLine, Upload, Check, Copy, ScanLine, QrCode, AlertTriangle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { QRCodeSVG } from 'qrcode.react';
+import Tesseract from 'tesseract.js';
 
 const USD_TO_PKR = 278.5;
 
@@ -15,102 +17,126 @@ const plans = [
   { usd: 0, label: 'Custom' },
 ];
 
+const EASYPAISA_ACCOUNT = '03703770146';
+const EASYPAISA_NAME = 'Imtiazyan Saim';
+
+type OcrStatus = 'idle' | 'processing' | 'verified' | 'warning' | 'failed';
+
+interface OcrAnalysis {
+  status: OcrStatus;
+  message: string;
+  detectedAmount?: number | null;
+  detectedAccount?: string | null;
+  rawText?: string;
+  confidence?: number;
+}
+
 const DepositPage = () => {
   const { user } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState('');
   const [screenshot, setScreenshot] = useState<File | null>(null);
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [ocrProcessing, setOcrProcessing] = useState(false);
-  const [ocrResult, setOcrResult] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [ocr, setOcr] = useState<OcrAnalysis>({ status: 'idle', message: '' });
 
   const isPakistan = user?.country === 'Pakistan';
   const amount = selectedPlan === 2 ? Number(customAmount) : plans[selectedPlan ?? 0]?.usd || 0;
-  const pkrAmount = (amount * USD_TO_PKR).toFixed(0);
+  const pkrAmount = Math.round(amount * USD_TO_PKR);
 
-  const handleCopy = (text: string) => {
+  // Easypaisa-compatible payment QR string. Most PK wallet apps will read this
+  // as a beneficiary hint (account + name + amount).
+  const qrPayload = `easypaisa://pay?msisdn=${EASYPAISA_ACCOUNT}&name=${encodeURIComponent(
+    EASYPAISA_NAME
+  )}&amount=${pkrAmount}&ref=UVTRADE-${user?.id?.slice(0, 6) || 'NEW'}`;
+
+  const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    setCopied(true);
-    toast.success('Copied!');
-    setTimeout(() => setCopied(false), 2000);
+    setCopied(label);
+    toast.success(`${label} copied`);
+    setTimeout(() => setCopied(null), 1800);
   };
 
-  // OCR verification using canvas to extract text-like patterns from screenshot
-  const processOCR = async (file: File): Promise<string> => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) { resolve('Unable to process image'); return; }
-          ctx.drawImage(img, 0, 0);
-          
-          // Extract image data for basic verification
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const pixels = imageData.data;
-          
-          // Check if image has meaningful content (not blank)
-          let nonWhitePixels = 0;
-          let greenPixels = 0;
-          for (let i = 0; i < pixels.length; i += 4) {
-            const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
-            if (r < 240 || g < 240 || b < 240) nonWhitePixels++;
-            if (g > r + 30 && g > b + 30) greenPixels++;
-          }
-          
-          const totalPixels = pixels.length / 4;
-          const contentRatio = nonWhitePixels / totalPixels;
-          const greenRatio = greenPixels / totalPixels;
-          
-          let result = '';
-          if (contentRatio < 0.1) {
-            result = '⚠️ Image appears mostly blank - may not be a valid payment screenshot';
-          } else if (greenRatio > 0.05) {
-            result = '✅ Payment screenshot detected (green elements found - likely Easypaisa/JazzCash)';
-          } else if (contentRatio > 0.3) {
-            result = '✅ Screenshot verified - contains transaction details';
-          } else {
-            result = '⚠️ Image content unclear - admin will manually verify';
-          }
-          
-          result += ` | Image: ${img.width}x${img.height}px, Content: ${(contentRatio * 100).toFixed(0)}%`;
-          resolve(result);
-        };
-        img.src = reader.result as string;
-      };
-      reader.readAsDataURL(file);
-    });
+  const runOCR = async (file: File) => {
+    setOcr({ status: 'processing', message: 'Scanning screenshot…' });
+    try {
+      const { data } = await Tesseract.recognize(file, 'eng', {
+        logger: () => {}, // silent
+      });
+      const rawText = (data.text || '').replace(/\s+/g, ' ').trim();
+      const confidence = data.confidence ?? 0;
+      const lower = rawText.toLowerCase();
+
+      // Find a number close to the expected PKR amount.
+      const numbers = Array.from(rawText.matchAll(/(\d{1,3}(?:[,]\d{3})+|\d{3,7})(?:\.\d{1,2})?/g))
+        .map((m) => Number(m[0].replace(/,/g, '')))
+        .filter((n) => !isNaN(n) && n >= 100 && n <= 10_000_000);
+      const detectedAmount =
+        numbers.find((n) => Math.abs(n - pkrAmount) <= Math.max(5, pkrAmount * 0.02)) ??
+        numbers.find((n) => n === pkrAmount) ??
+        null;
+
+      // Try to find the merchant account number.
+      const accMatch = rawText.match(/0\d{10}/);
+      const detectedAccount = accMatch?.[0] ?? null;
+
+      const mentionsEasypaisa =
+        lower.includes('easypaisa') || lower.includes('easy paisa') || lower.includes('jazzcash');
+      const mentionsSuccess =
+        lower.includes('successful') ||
+        lower.includes('success') ||
+        lower.includes('paid') ||
+        lower.includes('completed') ||
+        lower.includes('transaction id') ||
+        lower.includes('trx id');
+
+      let status: OcrStatus = 'warning';
+      let message = '';
+
+      if (!rawText || rawText.length < 10) {
+        status = 'failed';
+        message = 'Could not read any text from this image. Upload a clearer screenshot.';
+      } else if (
+        detectedAmount &&
+        (detectedAccount === EASYPAISA_ACCOUNT || mentionsEasypaisa) &&
+        mentionsSuccess
+      ) {
+        status = 'verified';
+        message = `Verified: PKR ${detectedAmount.toLocaleString()} sent successfully.`;
+      } else if (detectedAmount && (mentionsEasypaisa || detectedAccount)) {
+        status = 'verified';
+        message = `Amount PKR ${detectedAmount.toLocaleString()} matched. Awaiting admin confirmation.`;
+      } else if (mentionsEasypaisa || detectedAccount) {
+        status = 'warning';
+        message = `Easypaisa receipt detected, but amount didn't match PKR ${pkrAmount.toLocaleString()}.`;
+      } else {
+        status = 'warning';
+        message = 'This does not look like an Easypaisa receipt. Admin will manually review.';
+      }
+
+      setOcr({ status, message, detectedAmount, detectedAccount, rawText, confidence });
+    } catch (e) {
+      setOcr({
+        status: 'failed',
+        message: 'OCR engine failed. You can still submit, admin will verify manually.',
+      });
+    }
   };
 
   const handleScreenshotChange = async (file: File | null) => {
     setScreenshot(file);
-    setOcrResult(null);
-    if (file) {
-      setOcrProcessing(true);
-      try {
-        const result = await processOCR(file);
-        setOcrResult(result);
-      } catch {
-        setOcrResult('⚠️ Could not process image');
-      }
-      setOcrProcessing(false);
-    }
+    if (screenshotPreview) URL.revokeObjectURL(screenshotPreview);
+    setScreenshotPreview(file ? URL.createObjectURL(file) : null);
+    setOcr({ status: 'idle', message: '' });
+    if (file) await runOCR(file);
   };
 
   const handleSubmit = () => {
-    if (amount <= 0) {
-      toast.error('Select a valid plan');
-      return;
-    }
-    if (isPakistan && !screenshot) {
-      toast.error('Please upload payment screenshot');
-      return;
-    }
+    if (amount <= 0) return toast.error('Select a valid plan');
+    if (isPakistan && !screenshot) return toast.error('Please upload payment screenshot');
+    if (ocr.status === 'processing') return toast.error('Wait for verification to finish');
+
     const deposits = JSON.parse(localStorage.getItem('uv_deposits') || '[]');
     deposits.push({
       id: `dep-${Date.now()}`,
@@ -118,15 +144,18 @@ const DepositPage = () => {
       userEmail: user?.email,
       amount,
       pkrAmount: isPakistan ? pkrAmount : null,
-      method: isPakistan ? 'Easypaisa' : 'Bank Transfer',
+      method: isPakistan ? 'Easypaisa QR' : 'Bank Transfer',
       status: 'pending',
       timestamp: new Date().toISOString(),
       screenshotName: screenshot?.name || null,
-      ocrResult: ocrResult || null,
+      ocrStatus: ocr.status,
+      ocrMessage: ocr.message,
+      ocrDetectedAmount: ocr.detectedAmount ?? null,
+      ocrDetectedAccount: ocr.detectedAccount ?? null,
     });
     localStorage.setItem('uv_deposits', JSON.stringify(deposits));
     setSubmitted(true);
-    toast.success('Deposit request submitted! Admin will review shortly.');
+    toast.success('Deposit request submitted!');
   };
 
   if (submitted) {
@@ -150,7 +179,16 @@ const DepositPage = () => {
           <p className="text-muted-foreground text-center text-sm">
             Your deposit of ${amount} is pending admin approval. You'll be notified once approved.
           </p>
-          <Button onClick={() => { setSubmitted(false); setOcrResult(null); setScreenshot(null); }} variant="outline" className="mt-6">
+          <Button
+            onClick={() => {
+              setSubmitted(false);
+              setScreenshot(null);
+              setScreenshotPreview(null);
+              setOcr({ status: 'idle', message: '' });
+            }}
+            variant="outline"
+            className="mt-6"
+          >
             Make Another Deposit
           </Button>
         </div>
@@ -160,8 +198,8 @@ const DepositPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <header className="px-4 py-4 border-b border-border bg-surface-1">
+    <div className="min-h-screen bg-background pb-24">
+      <header className="px-4 py-4 border-b border-border bg-surface-1 sticky top-0 z-10 backdrop-blur-md">
         <h1 className="text-lg font-bold text-foreground flex items-center gap-2">
           <ArrowDownToLine className="w-5 h-5 text-primary" />
           Deposit Funds
@@ -171,7 +209,7 @@ const DepositPage = () => {
       <div className="p-4 space-y-4">
         {/* Plan selection */}
         <div className="glass rounded-xl p-4">
-          <h3 className="text-sm font-semibold text-foreground mb-3">Select Plan</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-3">Select Amount</h3>
           <div className="grid grid-cols-3 gap-2">
             {plans.map((plan, i) => (
               <button
@@ -209,52 +247,114 @@ const DepositPage = () => {
           )}
         </div>
 
-        {/* Payment details */}
+        {/* QR Scan payment */}
         {selectedPlan !== null && amount > 0 && isPakistan && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className="glass rounded-xl p-4"
           >
-            <h3 className="text-sm font-semibold text-foreground mb-3">Easypaisa Payment</h3>
-            <div className="space-y-3">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <QrCode className="w-4 h-4 text-primary" />
+                Scan with Easypaisa
+              </h3>
+              <span className="text-[10px] px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/30">
+                LIVE QR
+              </span>
+            </div>
+
+            <div className="flex flex-col items-center bg-white rounded-xl p-4">
+              <QRCodeSVG
+                value={qrPayload}
+                size={200}
+                level="H"
+                includeMargin={false}
+                bgColor="#ffffff"
+                fgColor="#0a0a0a"
+                imageSettings={{
+                  src: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="%2300D4AA"/><text x="12" y="16" font-family="Arial" font-size="11" font-weight="bold" text-anchor="middle" fill="white">UV</text></svg>',
+                  height: 36,
+                  width: 36,
+                  excavate: true,
+                }}
+              />
+              <p className="text-[11px] text-neutral-600 mt-2 font-medium">
+                Open Easypaisa → Scan QR → Pay
+              </p>
+            </div>
+
+            <div className="space-y-2 mt-3">
               <div className="flex justify-between items-center bg-muted rounded-lg p-3">
                 <div>
-                  <p className="text-xs text-muted-foreground">Account Number</p>
-                  <p className="font-mono text-sm text-foreground">03703770146</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                    Account Number
+                  </p>
+                  <p className="font-mono text-sm text-foreground">{EASYPAISA_ACCOUNT}</p>
                 </div>
-                <button onClick={() => handleCopy('03703770146')} className="text-primary">
-                  <Copy className="w-4 h-4" />
+                <button
+                  onClick={() => handleCopy(EASYPAISA_ACCOUNT, 'Account')}
+                  className="text-primary p-2 hover:bg-primary/10 rounded-lg transition-colors"
+                >
+                  {copied === 'Account' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 </button>
               </div>
               <div className="flex justify-between items-center bg-muted rounded-lg p-3">
                 <div>
-                  <p className="text-xs text-muted-foreground">Account Name</p>
-                  <p className="text-sm text-foreground">Imtiazyan Saim</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                    Account Name
+                  </p>
+                  <p className="text-sm text-foreground">{EASYPAISA_NAME}</p>
                 </div>
               </div>
-              <div className="bg-primary/10 rounded-lg p-3 text-center">
-                <p className="text-xs text-muted-foreground">Send exactly</p>
-                <p className="text-xl font-bold font-mono text-primary">PKR {pkrAmount}</p>
-                <p className="text-xs text-muted-foreground">(${amount} USD)</p>
+              <div className="bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 rounded-lg p-3 text-center">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                  Send exactly
+                </p>
+                <p className="text-2xl font-bold font-mono text-primary">
+                  PKR {pkrAmount.toLocaleString()}
+                </p>
+                <p className="text-[10px] text-muted-foreground">(${amount} USD)</p>
+                <button
+                  onClick={() => handleCopy(String(pkrAmount), 'Amount')}
+                  className="text-[10px] text-primary mt-1 underline"
+                >
+                  {copied === 'Amount' ? 'Copied!' : 'Copy amount'}
+                </button>
               </div>
             </div>
           </motion.div>
         )}
 
-        {/* Screenshot upload with OCR */}
+        {/* Screenshot + OCR */}
         {selectedPlan !== null && amount > 0 && (
           <div className="glass rounded-xl p-4">
             <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-              <ScanSearch className="w-4 h-4 text-primary" />
-              {isPakistan ? 'Upload Payment Screenshot' : 'Upload Payment Proof'}
+              <ScanLine className="w-4 h-4 text-primary" />
+              Upload Payment Screenshot
             </h3>
-            <label className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-lg p-6 cursor-pointer hover:border-primary/50 transition-colors">
-              <Upload className="w-8 h-8 text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">
-                {screenshot ? screenshot.name : 'Tap to upload screenshot'}
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-1">Auto-verified with OCR</p>
+
+            <label className="relative flex flex-col items-center justify-center border-2 border-dashed border-border rounded-lg p-4 cursor-pointer hover:border-primary/50 transition-colors overflow-hidden">
+              {screenshotPreview ? (
+                <div className="w-full">
+                  <img
+                    src={screenshotPreview}
+                    alt="Payment proof"
+                    className="w-full max-h-48 object-contain rounded-md"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-2 text-center truncate">
+                    {screenshot?.name} · Tap to replace
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">Tap to upload screenshot</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Auto-verified with real OCR (text scan)
+                  </p>
+                </>
+              )}
               <input
                 type="file"
                 accept="image/*"
@@ -262,29 +362,95 @@ const DepositPage = () => {
                 onChange={(e) => handleScreenshotChange(e.target.files?.[0] || null)}
               />
             </label>
-            
-            {/* OCR Result */}
-            {ocrProcessing && (
-              <div className="mt-3 p-3 bg-muted rounded-lg text-center">
-                <p className="text-xs text-muted-foreground animate-pulse">🔍 Verifying screenshot...</p>
-              </div>
-            )}
-            {ocrResult && !ocrProcessing && (
-              <motion.div
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-3 p-3 bg-muted rounded-lg"
-              >
-                <p className="text-xs text-muted-foreground">{ocrResult}</p>
-              </motion.div>
-            )}
+
+            {/* OCR result panel */}
+            <AnimatePresence mode="wait">
+              {ocr.status !== 'idle' && (
+                <motion.div
+                  key={ocr.status}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className={`mt-3 rounded-lg p-3 border ${
+                    ocr.status === 'verified'
+                      ? 'border-primary/40 bg-primary/10'
+                      : ocr.status === 'processing'
+                      ? 'border-border bg-muted'
+                      : ocr.status === 'failed'
+                      ? 'border-destructive/40 bg-destructive/10'
+                      : 'border-yellow-500/40 bg-yellow-500/10'
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    {ocr.status === 'processing' && (
+                      <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0 mt-0.5" />
+                    )}
+                    {ocr.status === 'verified' && (
+                      <Check className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                    )}
+                    {(ocr.status === 'warning' || ocr.status === 'failed') && (
+                      <AlertTriangle
+                        className={`w-4 h-4 shrink-0 mt-0.5 ${
+                          ocr.status === 'failed' ? 'text-destructive' : 'text-yellow-500'
+                        }`}
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-foreground">
+                        {ocr.status === 'processing' && 'Scanning receipt with OCR…'}
+                        {ocr.status === 'verified' && 'Payment receipt verified'}
+                        {ocr.status === 'warning' && 'Needs manual review'}
+                        {ocr.status === 'failed' && 'Verification failed'}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">{ocr.message}</p>
+
+                      {(ocr.detectedAmount || ocr.detectedAccount) && (
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          {ocr.detectedAmount && (
+                            <div className="bg-background/50 rounded p-2">
+                              <p className="text-[9px] uppercase text-muted-foreground">
+                                Detected Amount
+                              </p>
+                              <p className="text-xs font-mono text-foreground">
+                                PKR {ocr.detectedAmount.toLocaleString()}
+                              </p>
+                            </div>
+                          )}
+                          {ocr.detectedAccount && (
+                            <div className="bg-background/50 rounded p-2">
+                              <p className="text-[9px] uppercase text-muted-foreground">
+                                Detected Account
+                              </p>
+                              <p className="text-xs font-mono text-foreground truncate">
+                                {ocr.detectedAccount}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         )}
 
         {/* Submit */}
         {selectedPlan !== null && amount > 0 && (
-          <Button onClick={handleSubmit} className="w-full h-12" disabled={ocrProcessing}>
-            Submit Deposit Request - ${amount}
+          <Button
+            onClick={handleSubmit}
+            className="w-full h-12 text-base font-semibold"
+            disabled={ocr.status === 'processing'}
+          >
+            {ocr.status === 'processing' ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Verifying…
+              </>
+            ) : (
+              `Submit Deposit – $${amount}`
+            )}
           </Button>
         )}
       </div>
