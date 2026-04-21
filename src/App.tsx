@@ -6,6 +6,9 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { TradeProvider } from "@/contexts/TradeContext";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import VerifyEmail from "./pages/VerifyEmail";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Trade from "./pages/Trade";
 import TradeHistory from "./pages/TradeHistory";
 import WalletPage from "./pages/WalletPage";
@@ -36,6 +39,9 @@ const AppRoutes = () => (
     <Route path="/" element={<Navigate to="/trade" replace />} />
     <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
     <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+    <Route path="/verify-email" element={<VerifyEmail />} />
+    <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+    <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="/trade" element={<ProtectedRoute><Trade /></ProtectedRoute>} />
     <Route path="/history" element={<ProtectedRoute><TradeHistory /></ProtectedRoute>} />
     <Route path="/wallet" element={<ProtectedRoute><WalletPage /></ProtectedRoute>} />
