@@ -266,22 +266,14 @@ const DepositPage = () => {
             </div>
 
             <div className="flex flex-col items-center bg-white rounded-xl p-4">
-              <QRCodeSVG
-                value={qrPayload}
-                size={200}
-                level="H"
-                includeMargin={false}
-                bgColor="#ffffff"
-                fgColor="#0a0a0a"
-                imageSettings={{
-                  src: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="%2300D4AA"/><text x="12" y="16" font-family="Arial" font-size="11" font-weight="bold" text-anchor="middle" fill="white">UV</text></svg>',
-                  height: 36,
-                  width: 36,
-                  excavate: true,
-                }}
+              <img
+                src={selectedPlan === 0 ? qr50 : qr100}
+                alt={`Easypaisa QR for PKR ${pkrAmount}`}
+                className="w-52 h-52 object-contain"
+                draggable={false}
               />
               <p className="text-[11px] text-neutral-600 mt-2 font-medium">
-                Open Easypaisa → Scan QR → Pay
+                Open Easypaisa → Scan QR → Pay PKR {pkrAmount.toLocaleString()}
               </p>
             </div>
 
