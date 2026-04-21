@@ -6,8 +6,9 @@ import { Input } from '@/components/ui/input';
 import { ArrowDownToLine, Upload, Check, Copy, ScanLine, QrCode, AlertTriangle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { QRCodeSVG } from 'qrcode.react';
 import Tesseract from 'tesseract.js';
+import qr50 from '@/assets/qr-50.png';
+import qr100 from '@/assets/qr-100.png';
 
 const USD_TO_PKR = 278.5;
 
