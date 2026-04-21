@@ -46,11 +46,6 @@ const DepositPage = () => {
   const amount = selectedPlan === 2 ? Number(customAmount) : plans[selectedPlan ?? 0]?.usd || 0;
   const pkrAmount = Math.round(amount * USD_TO_PKR);
 
-  // Easypaisa-compatible payment QR string. Most PK wallet apps will read this
-  // as a beneficiary hint (account + name + amount).
-  const qrPayload = `easypaisa://pay?msisdn=${EASYPAISA_ACCOUNT}&name=${encodeURIComponent(
-    EASYPAISA_NAME
-  )}&amount=${pkrAmount}&ref=UVTRADE-${user?.id?.slice(0, 6) || 'NEW'}`;
 
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
