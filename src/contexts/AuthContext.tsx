@@ -56,10 +56,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
+    const normalizedEmail = email.trim().toLowerCase();
+    const trimmedPassword = password.trim();
+    if (!normalizedEmail || !trimmedPassword) {
+      throw new Error('Please enter your email and password');
+    }
     const users = getUsers();
-    const found = users[email];
-    if (!found || found.password !== password) {
-      throw new Error('Invalid email or password');
+    const found = users[normalizedEmail];
+    if (!found) {
+      throw new Error('No account found with this email. Please sign up first.');
+    }
+    if (found.password !== trimmedPassword) {
+      throw new Error('Incorrect password. Please try again.');
     }
     const { password: _, ...userData } = found;
     setUser(userData);
@@ -67,20 +75,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signup = async (fullName: string, email: string, password: string, country: string) => {
+    const normalizedEmail = email.trim().toLowerCase();
+    const trimmedPassword = password.trim();
+    if (!normalizedEmail || !trimmedPassword || !fullName.trim()) {
+      throw new Error('Please fill in all fields');
+    }
+    if (trimmedPassword.length < 6) {
+      throw new Error('Password must be at least 6 characters');
+    }
     const users = getUsers();
-    if (users[email]) {
-      throw new Error('Email already registered');
+    if (users[normalizedEmail]) {
+      throw new Error('Email already registered. Please log in instead.');
     }
     const newUser = {
       id: `user-${Date.now()}`,
-      email,
-      fullName,
+      email: normalizedEmail,
+      fullName: fullName.trim(),
       country,
-      balance: 0, // Real accounts start with $0, deposit required
+      balance: 0,
       isAdmin: false,
-      password,
+      password: trimmedPassword,
     };
-    users[email] = newUser;
+    users[normalizedEmail] = newUser;
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
     const { password: _, ...userData } = newUser;
     setUser(userData);
