@@ -19,7 +19,6 @@ const plans = [
 ];
 
 const EASYPAISA_ACCOUNT = '03703770146';
-const EASYPAISA_NAME = 'Imtiazyan Saim';
 
 type OcrStatus = 'idle' | 'processing' | 'verified' | 'warning' | 'failed';
 
@@ -273,28 +272,6 @@ const DepositPage = () => {
             </div>
 
             <div className="space-y-2 mt-3">
-              <div className="flex justify-between items-center bg-muted rounded-lg p-3">
-                <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
-                    Account Number
-                  </p>
-                  <p className="font-mono text-sm text-foreground">{EASYPAISA_ACCOUNT}</p>
-                </div>
-                <button
-                  onClick={() => handleCopy(EASYPAISA_ACCOUNT, 'Account')}
-                  className="text-primary p-2 hover:bg-primary/10 rounded-lg transition-colors"
-                >
-                  {copied === 'Account' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                </button>
-              </div>
-              <div className="flex justify-between items-center bg-muted rounded-lg p-3">
-                <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
-                    Account Name
-                  </p>
-                  <p className="text-sm text-foreground">{EASYPAISA_NAME}</p>
-                </div>
-              </div>
               <div className="bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 rounded-lg p-3 text-center">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
                   Send exactly
@@ -303,6 +280,7 @@ const DepositPage = () => {
                   PKR {pkrAmount.toLocaleString()}
                 </p>
                 <p className="text-[10px] text-muted-foreground">(${amount} USD)</p>
+                <p className="text-[11px] text-muted-foreground mt-1">Scan with Easypaisa</p>
                 <button
                   onClick={() => handleCopy(String(pkrAmount), 'Amount')}
                   className="text-[10px] text-primary mt-1 underline"
