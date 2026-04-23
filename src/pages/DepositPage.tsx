@@ -266,9 +266,6 @@ const DepositPage = () => {
                 className="w-52 h-52 object-contain"
                 draggable={false}
               />
-              <p className="text-[11px] text-neutral-600 mt-2 font-medium">
-                Open Easypaisa → Scan QR → Pay PKR {pkrAmount.toLocaleString()}
-              </p>
             </div>
 
             <div className="space-y-2 mt-3">
@@ -280,7 +277,7 @@ const DepositPage = () => {
                   PKR {pkrAmount.toLocaleString()}
                 </p>
                 <p className="text-[10px] text-muted-foreground">(${amount} USD)</p>
-                <p className="text-[11px] text-muted-foreground mt-1">Scan with Easypaisa</p>
+                <p className="text-[11px] text-muted-foreground mt-1">Scan and Deposit</p>
                 <button
                   onClick={() => handleCopy(String(pkrAmount), 'Amount')}
                   className="text-[10px] text-primary mt-1 underline"
