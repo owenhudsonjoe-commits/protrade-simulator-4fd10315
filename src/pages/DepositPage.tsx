@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import BottomNav from '@/components/BottomNav';
 import { Button } from '@/components/ui/button';
@@ -32,18 +32,76 @@ interface OcrAnalysis {
 }
 
 const DepositPage = () => {
-  const { user } = useAuth();
+  const { user, updateBalance } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState('');
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [autoApprovalPending, setAutoApprovalPending] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [ocr, setOcr] = useState<OcrAnalysis>({ status: 'idle', message: '' });
+  const autoApproveLock = useRef(false);
 
   const isPakistan = user?.country === 'Pakistan';
   const amount = selectedPlan === 2 ? Number(customAmount) : plans[selectedPlan ?? 0]?.usd || 0;
   const pkrAmount = Math.round(amount * USD_TO_PKR);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const approveVerifiedDeposits = async () => {
+      if (autoApproveLock.current) return;
+
+      const deposits = JSON.parse(localStorage.getItem('uv_deposits') || '[]');
+      const now = Date.now();
+      let approvedAmount = 0;
+      let changed = false;
+
+      const updatedDeposits = deposits.map((deposit: any) => {
+        const readyForAutoApproval =
+          deposit.userId === user.id &&
+          deposit.status === 'pending' &&
+          deposit.ocrStatus === 'verified' &&
+          deposit.autoApproveAt &&
+          !deposit.balanceCredited &&
+          now >= new Date(deposit.autoApproveAt).getTime();
+
+        if (!readyForAutoApproval) return deposit;
+
+        approvedAmount += Number(deposit.amount) || 0;
+        changed = true;
+
+        return {
+          ...deposit,
+          status: 'approved',
+          balanceCredited: true,
+          approvedAt: new Date().toISOString(),
+          approvalSource: 'ocr-auto',
+        };
+      });
+
+      if (!changed || approvedAmount <= 0) return;
+
+      autoApproveLock.current = true;
+      localStorage.setItem('uv_deposits', JSON.stringify(updatedDeposits));
+
+      try {
+        await updateBalance(approvedAmount);
+        setAutoApprovalPending(false);
+        toast.success(`Deposit approved. $${approvedAmount.toFixed(2)} added to your balance.`);
+      } finally {
+        autoApproveLock.current = false;
+      }
+    };
+
+    void approveVerifiedDeposits();
+    const interval = window.setInterval(() => {
+      void approveVerifiedDeposits();
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [user, updateBalance]);
 
 
   const handleCopy = (text: string, label: string) => {
@@ -134,6 +192,7 @@ const DepositPage = () => {
     if (ocr.status === 'processing') return toast.error('Wait for verification to finish');
 
     const deposits = JSON.parse(localStorage.getItem('uv_deposits') || '[]');
+    const isAutoApprovedByOcr = ocr.status === 'verified';
     deposits.push({
       id: `dep-${Date.now()}`,
       userId: user?.id,
@@ -148,10 +207,13 @@ const DepositPage = () => {
       ocrMessage: ocr.message,
       ocrDetectedAmount: ocr.detectedAmount ?? null,
       ocrDetectedAccount: ocr.detectedAccount ?? null,
+      autoApproveAt: isAutoApprovedByOcr ? new Date(Date.now() + 30_000).toISOString() : null,
+      balanceCredited: false,
     });
     localStorage.setItem('uv_deposits', JSON.stringify(deposits));
+    setAutoApprovalPending(isAutoApprovedByOcr);
     setSubmitted(true);
-    toast.success('Deposit request submitted!');
+    toast.success(isAutoApprovedByOcr ? 'OCR verified. Your deposit will auto-approve in 30 seconds.' : 'Deposit request submitted!');
   };
 
   if (submitted) {
