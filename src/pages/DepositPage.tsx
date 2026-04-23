@@ -252,7 +252,7 @@ const DepositPage = () => {
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <QrCode className="w-4 h-4 text-primary" />
-                Scan with Easypaisa
+                Scan to Deposit
               </h3>
               <span className="text-[10px] px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/30">
                 LIVE QR
