@@ -129,6 +129,7 @@ const DepositPage = () => {
 
   const handleSubmit = () => {
     if (amount <= 0) return toast.error('Select a valid plan');
+    if (selectedPlan === 2 && amount < 50) return toast.error('Custom deposits must be $50 or more');
     if (isPakistan && !screenshot) return toast.error('Please upload payment screenshot');
     if (ocr.status === 'processing') return toast.error('Wait for verification to finish');
 
@@ -233,6 +234,9 @@ const DepositPage = () => {
                 onChange={(e) => setCustomAmount(e.target.value)}
                 className="bg-muted border-border"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Below $50 is not available. Please make your deposit $50 or above.
+              </p>
               {isPakistan && customAmount && (
                 <p className="text-xs text-muted-foreground mt-1">
                   ≈ PKR {(Number(customAmount) * USD_TO_PKR).toFixed(0)}
