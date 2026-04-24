@@ -115,7 +115,7 @@ const Login = () => {
             <TrendingUp className="w-7 h-7 text-primary" />
           </motion.div>
           <h1 className="text-2xl font-bold text-white tracking-tight">
-            UV<span className="text-primary"> Trade</span>
+            FX<span className="text-primary">onix</span>
           </h1>
           <p className="text-sm text-white/40 mt-1.5">Sign in to access your account</p>
         </div>
