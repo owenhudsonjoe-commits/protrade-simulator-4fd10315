@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { toast } from 'sonner';
 
 interface User {
   id: string;
@@ -100,6 +101,9 @@ const issueOtp = (email: string, type: OtpType): string => {
   const otps = loadOtps().filter((o) => !(o.email === email && o.type === type));
   otps.push({ email, type, code, expiresAt: Date.now() + OTP_TTL_MS });
   saveOtps(otps);
+  toast.message(`Verification code: ${code}`, {
+    duration: 15000,
+  });
   return code;
 };
 
