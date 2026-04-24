@@ -32,7 +32,7 @@ const VerifyEmail = () => {
     setLoading(true);
     try {
       await verifySignupOtp(email, code);
-      toast.success('Email verified! Welcome to UV Trade.');
+      toast.success('Email verified! Welcome to FXonix.');
       navigate('/account-creating', { state: { email }, replace: true });
     } catch (err: any) {
       toast.error(err.message);

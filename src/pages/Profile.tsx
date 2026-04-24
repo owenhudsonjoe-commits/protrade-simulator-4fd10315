@@ -173,7 +173,7 @@ const Profile = () => {
           Sign Out
         </motion.button>
 
-        <p className="text-center text-[10px] text-white/20">UV Trade • v1.0</p>
+        <p className="text-center text-[10px] text-white/20">FXonix • v1.0</p>
       </div>
 
       <BottomNav />

@@ -38,7 +38,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const ADMIN_EMAILS = ['admin@uvtrade.com'];
+const ADMIN_EMAILS = ['admin@fxonix.com'];
 const USERS_KEY = 'uv_trade_users';
 const CURRENT_USER_KEY = 'uv_trade_current_user';
 const OTP_KEY = 'uv_trade_otps';
@@ -67,10 +67,10 @@ const saveUsers = (users: StoredUser[]) => {
 
 const seedAdmin = async () => {
   const users = loadUsers();
-  if (users.some((u) => u.email === 'admin@uvtrade.com')) return;
+  if (users.some((u) => u.email === 'admin@fxonix.com')) return;
   users.push({
     id: 'admin-' + Date.now(),
-    email: 'admin@uvtrade.com',
+    email: 'admin@fxonix.com',
     fullName: 'Admin',
     country: '',
     balance: 0,

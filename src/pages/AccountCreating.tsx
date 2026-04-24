@@ -105,8 +105,8 @@ const AccountCreating = () => {
             />
           </motion.div>
           <h1 className="text-2xl font-black text-white tracking-tight">
-            <span className="text-white">UV </span>
-            <span className="text-[#00e676]">Trade</span>
+            <span className="text-white">FX</span>
+            <span className="text-[#00e676]">onix</span>
           </h1>
           <p className="text-sm text-white/45 mt-1">Setting up your account</p>
         </div>

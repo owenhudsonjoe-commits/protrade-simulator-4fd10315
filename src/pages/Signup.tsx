@@ -124,8 +124,8 @@ const Signup = () => {
             <TrendingUp className="w-8 h-8 text-black" strokeWidth={2.5} />
           </motion.div>
           <h1 className="text-2xl font-black text-white tracking-tight">
-            <span className="text-white">UV </span>
-            <span className="text-[#00e676]">Trade</span>
+            <span className="text-white">FX</span>
+            <span className="text-[#00e676]">onix</span>
           </h1>
           <p className="text-sm text-white/45 mt-1">Create your free trading account</p>
         </div>

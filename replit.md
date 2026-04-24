@@ -1,4 +1,4 @@
-# UV Trade - Binary Options Trading Platform
+# FXonix - Binary Options Trading Platform
 
 ## Overview
 A mobile-first binary options trading web app built with React, TypeScript, Vite, and Tailwind CSS. Features real-time cryptocurrency/forex charting, trade management, wallet system, and an admin panel.
@@ -31,7 +31,7 @@ All data is stored in `localStorage` — no backend, no third-party auth, no API
 Sign-up and password-reset use a 6-digit OTP that's displayed on screen via a toast (since there's no email server). The default admin account is auto-seeded on first load.
 
 ## Default Admin Account
-- Email: `admin@uvtrade.com`
+- Email: `admin@fxonix.com`
 - Password: `admin123`
 
 ## Running the App
