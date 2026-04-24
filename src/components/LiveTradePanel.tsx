@@ -68,7 +68,9 @@ const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props)
             : Math.min(priceRef.current, trade.entryPrice - nudge);
           completeTrade(trade.id, exitPrice);
           clearForcedBias(trade.id);
-          const profit = trade.amount * (profitPercent / 100);
+          // Random payout between 75% and 85% per trade
+          const winPct = 75 + Math.random() * 10;
+          const profit = trade.amount * (winPct / 100);
           updateBalance(trade.amount + profit);
           playWinSound();
           triggerHaptic('win');
