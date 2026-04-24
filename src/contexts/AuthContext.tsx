@@ -132,6 +132,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     (async () => {
       await seedAdmin();
+      // TEMP TEST BONUS — adds $1000 once per user for trade testing. Remove this block to revert.
+      try {
+        const BONUS_FLAG = 'uv_test_bonus_v1';
+        const users = loadUsers();
+        let changed = false;
+        for (const u of users) {
+          if (!(u as any)[BONUS_FLAG]) {
+            u.balance = (u.balance || 0) + 1000;
+            (u as any)[BONUS_FLAG] = true;
+            changed = true;
+          }
+        }
+        if (changed) saveUsers(users);
+      } catch {
+        // ignore
+      }
+      // END TEMP TEST BONUS
       try {
         const id = localStorage.getItem(CURRENT_USER_KEY);
         if (id) {
