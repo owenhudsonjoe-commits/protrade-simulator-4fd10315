@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTrades } from '@/contexts/TradeContext';
 import type { MarketTicker } from '@/hooks/useBinanceWebSocket';
+import { setForcedBias, clearForcedBias } from '@/hooks/useForexFeed';
 import { ArrowUp, ArrowDown, Clock, DollarSign, Zap, TrendingUp, Flame, ShieldAlert, BarChart2, Target, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -54,25 +55,24 @@ const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props)
   }, [symbol]);
 
   // ── Trade expiry ───────────────────────────────────────────────────────────
+  // RIGGED: every trade wins. The chart was already pushed in the user's
+  // direction during the last 5 s by the forced-bias registry in useForexFeed.
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
       activeTrades.forEach((trade) => {
         if (now >= trade.expiryTime && priceRef.current > 0) {
-          const forceWin = Math.random() < (0.70 + Math.random() * 0.10);
-          const nudge    = trade.entryPrice * 0.0001 * (0.5 + Math.random());
-          let exitPrice  = priceRef.current;
-          if (forceWin) {
-            exitPrice = trade.direction === 'up' ? trade.entryPrice + nudge : trade.entryPrice - nudge;
-          } else {
-            exitPrice = trade.direction === 'up' ? trade.entryPrice - nudge : trade.entryPrice + nudge;
-          }
+          const nudge     = trade.entryPrice * 0.0008;
+          const exitPrice = trade.direction === 'up'
+            ? Math.max(priceRef.current, trade.entryPrice + nudge)
+            : Math.min(priceRef.current, trade.entryPrice - nudge);
           completeTrade(trade.id, exitPrice);
-          const won    = trade.direction === 'up' ? exitPrice > trade.entryPrice : exitPrice < trade.entryPrice;
+          clearForcedBias(trade.id);
           const profit = trade.amount * (profitPercent / 100);
-          updateBalance(won ? trade.amount + profit : 0);
-          won ? (playWinSound(), triggerHaptic('win')) : (playLossSound(), triggerHaptic('loss'));
-          setTradeResult({ won, profit, amount: trade.amount, pairName, direction: trade.direction });
+          updateBalance(trade.amount + profit);
+          playWinSound();
+          triggerHaptic('win');
+          setTradeResult({ won: true, profit, amount: trade.amount, pairName, direction: trade.direction });
         }
       });
     }, 500);
@@ -126,6 +126,15 @@ const LiveTradePanel = ({ ticker, symbol, pairName, onForcedPriceNudge }: Props)
       timestamp:   new Date().toISOString(),
     };
     addTrade(trade);
+    // Rig the last 5 seconds of the chart toward the user's chosen direction
+    setForcedBias({
+      tradeId: trade.id,
+      symbol,
+      direction,
+      entryPrice: ticker.price,
+      startAt:  trade.expiryTime - 5000,
+      expiryAt: trade.expiryTime + 200,
+    });
     onForcedPriceNudge?.(direction, ticker.price);
     toast(`${direction === 'up' ? '📈' : '📉'} Trade opened`, {
       description: `${direction.toUpperCase()} $${amount} on ${pairName} @ $${ticker.price.toLocaleString()}`,

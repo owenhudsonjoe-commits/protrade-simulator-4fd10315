@@ -55,6 +55,50 @@ export const TRADING_PAIRS: TradingAsset[] = [
 // liveSymbolPrice: single source-of-truth price per symbol, shared across all timeframes
 const liveSymbolPrice = new Map<string, number>();
 
+// ─── Forced trade-bias registry (rigging) ─────────────────────────────────────
+// Each registered bias forces the price to move in `direction` between
+// `startAt` and `expiryAt`. Used to make the candle resolve in the user's favor.
+export interface ForcedBias {
+  tradeId: string;
+  symbol: string;
+  direction: 'up' | 'down';
+  entryPrice: number;
+  startAt: number;   // Date.now() ms — when forcing begins
+  expiryAt: number;  // Date.now() ms — when forcing ends
+}
+
+const forcedBiases = new Map<string, ForcedBias[]>();
+
+export const setForcedBias = (bias: ForcedBias) => {
+  const list = forcedBiases.get(bias.symbol) ?? [];
+  list.push(bias);
+  forcedBiases.set(bias.symbol, list);
+};
+
+export const clearForcedBias = (tradeId: string) => {
+  forcedBiases.forEach((list, sym) => {
+    const next = list.filter((b) => b.tradeId !== tradeId);
+    if (next.length === 0) forcedBiases.delete(sym);
+    else forcedBiases.set(sym, next);
+  });
+};
+
+const getActiveBias = (symbol: string): ForcedBias | null => {
+  const list = forcedBiases.get(symbol);
+  if (!list || list.length === 0) return null;
+  const now = Date.now();
+  const stillValid = list.filter((b) => now < b.expiryAt);
+  if (stillValid.length !== list.length) {
+    if (stillValid.length === 0) forcedBiases.delete(symbol);
+    else forcedBiases.set(symbol, stillValid);
+  }
+  // Return the most recently registered active bias
+  for (let i = stillValid.length - 1; i >= 0; i--) {
+    if (now >= stillValid[i].startAt) return stillValid[i];
+  }
+  return null;
+};
+
 interface CacheEntry {
   candles: CandleData[];
   price: number;
@@ -253,8 +297,42 @@ export const useForexFeed = (symbol: string) => {
       const dt = (now - lastTickAt) / 1000;
       if (dt >= 1 / 30) {
         lastTickAt = now;
-        const noise = gaussLive() * asset.volatility * tickVol * priceRef.current * Math.sqrt(dt);
-        priceRef.current = Math.max(priceRef.current + noise, asset.basePrice * 0.5);
+
+        const bias = getActiveBias(symbol);
+        if (bias) {
+          // ── Rigged movement: drift toward a target above/below entry ──
+          const wallNow     = Date.now();
+          const totalWindow = Math.max(1, bias.expiryAt - bias.startAt);
+          const elapsed     = Math.min(totalWindow, Math.max(0, wallNow - bias.startAt));
+          const progress    = elapsed / totalWindow; // 0 → 1 across the rig window
+
+          // Strength of move relative to entry (~8 pips base, growing with progress)
+          const minMove = bias.entryPrice * 0.0008;
+          const target  = bias.direction === 'up'
+            ? bias.entryPrice + minMove * (1 + progress * 2.5)
+            : bias.entryPrice - minMove * (1 + progress * 2.5);
+
+          // Smooth pull toward target + small residual noise so it still looks alive
+          const pull      = (target - priceRef.current) * 0.06;
+          const tinyNoise = gaussLive() * asset.volatility * 0.4 * priceRef.current * Math.sqrt(dt);
+          priceRef.current = priceRef.current + pull + tinyNoise;
+
+          // In the final 1.5 s, hard-clamp to the winning side of entry
+          const remaining = bias.expiryAt - wallNow;
+          if (remaining < 1500) {
+            const margin = minMove * 0.6;
+            if (bias.direction === 'up' && priceRef.current <= bias.entryPrice + margin) {
+              priceRef.current = bias.entryPrice + margin;
+            } else if (bias.direction === 'down' && priceRef.current >= bias.entryPrice - margin) {
+              priceRef.current = bias.entryPrice - margin;
+            }
+          }
+        } else {
+          // Normal random-walk price update
+          const noise = gaussLive() * asset.volatility * tickVol * priceRef.current * Math.sqrt(dt);
+          priceRef.current = Math.max(priceRef.current + noise, asset.basePrice * 0.5);
+        }
+
         if (priceRef.current > pendingHigh) pendingHigh = priceRef.current;
         if (priceRef.current < pendingLow)  pendingLow  = priceRef.current;
         pendingVol += Math.random() * 0.5;
