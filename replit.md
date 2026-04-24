@@ -17,15 +17,18 @@ A mobile-first binary options trading web app built with React, TypeScript, Vite
 - `src/components/` — Reusable UI components (charts, nav, trade panel, etc.)
 - `src/contexts/` — Global state: `AuthContext` (users/auth) and `TradeContext` (trades/history)
 - `src/hooks/` — Custom hooks (e.g., WebSocket price feeds from Binance/Forex APIs)
-- `src/integrations/supabase/` — Supabase client file (present but not actively used; app uses localStorage)
 - `src/lib/` — Utility functions
 
 ## Data Storage
-All data is stored in `localStorage`:
-- `uv_trade_users` — User accounts with hashed passwords
-- `uv_trade_current_user` — Current logged-in user session
+All data is stored in `localStorage` — no backend, no third-party auth, no API keys required:
+- `uv_trade_users` — User accounts with SHA-256 hashed passwords
+- `uv_trade_current_user` — Current logged-in user id
+- `uv_trade_otps` — Pending signup / password-reset codes (10-min expiry)
 - `uv_trades` — Trade history
 - `uv_profit_percent` — Admin-configurable profit percentage
+
+## Auth (Demo / localStorage)
+Sign-up and password-reset use a 6-digit OTP that's displayed on screen via a toast (since there's no email server). The default admin account is auto-seeded on first load.
 
 ## Default Admin Account
 - Email: `admin@uvtrade.com`
@@ -48,4 +51,4 @@ Outputs to `dist/`.
 - Fixed CSS `@import` ordering (moved Google Fonts import before Tailwind directives)
 - Updated Vite server to host `0.0.0.0` on port 5000 with `allowedHosts: true` for Replit proxy compatibility
 - Removed unused `server/db.ts` (auto-generated, referenced non-existent `@shared/schema`)
-- Supabase client file remains but is not used — all auth/data is localStorage-based
+- Replaced Supabase Auth with a localStorage-only auth implementation in `AuthContext.tsx` (same public API: `login`, `signup`, `verifySignupOtp`, `resendSignupOtp`, `requestPasswordReset`, `verifyPasswordResetOtp`, `logout`, `updateBalance`). Removed `@supabase/supabase-js`, `src/integrations/supabase/`, and the `supabase/` config folder. No third-party keys required.
