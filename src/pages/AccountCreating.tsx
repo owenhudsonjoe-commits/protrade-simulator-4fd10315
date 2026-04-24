@@ -53,7 +53,7 @@ const AccountCreating = () => {
         setStepIndex(STEPS.length - 1);
         setProgress(100);
         setTimeout(() => {
-          navigate('/verify-email', { state: { email }, replace: true });
+          navigate('/trade', { replace: true });
         }, 400);
       }
     }, 100);

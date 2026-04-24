@@ -24,7 +24,7 @@ const Signup = () => {
     setLoading(true);
     try {
       await signup(fullName, email, password, country);
-      navigate('/account-creating', { state: { email: email.trim().toLowerCase() } });
+      navigate('/verify-email', { state: { email: email.trim().toLowerCase() } });
     } catch (err: any) {
       toast.error(err.message);
       setLoading(false);
