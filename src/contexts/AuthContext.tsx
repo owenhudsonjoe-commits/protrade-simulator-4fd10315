@@ -149,6 +149,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // ignore
       }
       // END TEMP TEST BONUS
+
+      // TEMP BALANCE RESET — wipes balance back to 0 once per user. Remove block to revert.
+      try {
+        const RESET_FLAG = 'uv_balance_reset_v2';
+        const users = loadUsers();
+        let changed = false;
+        for (const u of users) {
+          if (!(u as any)[RESET_FLAG]) {
+            u.balance = 0;
+            (u as any)[RESET_FLAG] = true;
+            changed = true;
+          }
+        }
+        if (changed) saveUsers(users);
+      } catch {
+        // ignore
+      }
+      // END TEMP BALANCE RESET
       try {
         const id = localStorage.getItem(CURRENT_USER_KEY);
         if (id) {

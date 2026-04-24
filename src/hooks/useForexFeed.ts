@@ -206,7 +206,7 @@ export const useForexFeed = (symbol: string) => {
   const [ticker, setTicker]         = useState<MarketTicker | null>(null);
   const [candles, setCandles]       = useState<CandleData[]>([]);
   const [isConnected, setIsConnected] = useState(false);
-  const [interval, setInterval_]    = useState('1m');
+  const [interval, setInterval_]    = useState('5m');
 
   const priceRef   = useRef<number>(0);
   const dayOpenRef = useRef<number>(0);
