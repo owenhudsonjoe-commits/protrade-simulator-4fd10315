@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { toast } from 'sonner';
-import { seedSpecialAccount } from '@/lib/specialAccount';
+import { seedSpecialAccountSync } from '@/lib/specialAccount';
 
 interface User {
   id: string;
@@ -169,8 +169,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       // END TEMP BALANCE RESET
 
-      // Seed the special preview account (idempotent)
-      await seedSpecialAccount();
+      // Re-assert the special preview account (idempotent — keeps user
+      // record fresh even if another effect modified localStorage)
+      seedSpecialAccountSync();
 
       try {
         const id = localStorage.getItem(CURRENT_USER_KEY);

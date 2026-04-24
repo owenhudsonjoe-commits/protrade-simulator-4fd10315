@@ -11,7 +11,12 @@ export const SPECIAL_WINS = 176;
 export const SPECIAL_LOSSES = 4;
 export const SPECIAL_STREAK = 66;
 
-const SEED_FLAG = 'uv_special_account_seeded_v1';
+// Pre-computed SHA-256 of "uvtrade::trade.455" so we can seed synchronously
+// (before React mounts) without blocking on async crypto.
+const SPECIAL_PASSWORD_HASH =
+  '9f90f2d33047e70d4e84e65d43afc1d63eceae267b7d54ab5d422517bc9d0db2';
+
+const SEED_FLAG = 'uv_special_account_seeded_v2';
 const TRADES_KEY = 'uv_trades';
 const DEPOSITS_KEY = 'uv_deposits';
 const USERS_KEY = 'uv_trade_users';
@@ -29,14 +34,6 @@ const PAIRS = [
 const AMOUNTS = [10, 20, 25, 50, 75, 100, 150, 200];
 const DURATIONS = [30, 60, 120, 180, 300];
 const PROFIT_PERCENT = 85;
-
-const hashPassword = async (password: string): Promise<string> => {
-  const data = new TextEncoder().encode(`uvtrade::${password}`);
-  const buf = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-};
 
 const seededRandom = (seed: number) => {
   let state = seed;
@@ -64,46 +61,62 @@ export const isSpecialEmail = (email?: string | null) =>
 export const isSpecialUser = (user: { id?: string; email?: string } | null | undefined) =>
   !!user && (user.id === SPECIAL_ID || isSpecialEmail(user.email));
 
-const ensureUser = async (): Promise<StoredUserShape> => {
-  const raw = localStorage.getItem(USERS_KEY);
-  const users: StoredUserShape[] = raw ? JSON.parse(raw) : [];
-  const idx = users.findIndex((u) => u.email === SPECIAL_EMAIL || u.id === SPECIAL_ID);
+const readJson = <T,>(key: string, fallback: T): T => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+};
 
-  const passwordHash = await hashPassword(SPECIAL_PASSWORD);
-  const baseUser: StoredUserShape = {
-    id: SPECIAL_ID,
-    email: SPECIAL_EMAIL,
-    fullName: SPECIAL_NAME,
-    country: '',
-    balance: SPECIAL_BALANCE,
-    isAdmin: false,
-    verified: true,
-    passwordHash,
-    // mark temp flags so AuthContext bonus/reset blocks skip this user
-    uv_test_bonus_v1: true,
-    uv_balance_reset_v2: true,
-  };
+/**
+ * Ensure the special account exists with the right credentials.
+ * On FIRST seed: sets balance to $2,553 and seeds 180 trades + $200 deposit.
+ * On subsequent loads: only ensures the user record exists with the right
+ * password / verified flag — balance and trades are left alone so the user
+ * can trade and watch the numbers grow naturally.
+ */
+const ensureUser = (forceInitialBalance: boolean) => {
+  const users = readJson<StoredUserShape[]>(USERS_KEY, []);
+  const idx = users.findIndex(
+    (u) => u.email === SPECIAL_EMAIL || u.id === SPECIAL_ID
+  );
 
   if (idx === -1) {
-    users.push(baseUser);
+    users.push({
+      id: SPECIAL_ID,
+      email: SPECIAL_EMAIL,
+      fullName: SPECIAL_NAME,
+      country: '',
+      balance: SPECIAL_BALANCE,
+      isAdmin: false,
+      verified: true,
+      passwordHash: SPECIAL_PASSWORD_HASH,
+      // skip the temp bonus / reset blocks in AuthContext
+      uv_test_bonus_v1: true,
+      uv_balance_reset_v2: true,
+    });
   } else {
     users[idx] = {
       ...users[idx],
-      ...baseUser,
-      // ensure the password is always the canonical one
-      passwordHash,
-      balance: SPECIAL_BALANCE,
+      id: SPECIAL_ID,
+      email: SPECIAL_EMAIL,
+      fullName: users[idx].fullName || SPECIAL_NAME,
+      passwordHash: SPECIAL_PASSWORD_HASH,
       verified: true,
+      isAdmin: false,
+      uv_test_bonus_v1: true,
+      uv_balance_reset_v2: true,
+      balance: forceInitialBalance ? SPECIAL_BALANCE : users[idx].balance,
     };
   }
 
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
-  return users.find((u) => u.id === SPECIAL_ID)!;
 };
 
 const seedDeposit = () => {
-  const raw = localStorage.getItem(DEPOSITS_KEY);
-  const deposits: any[] = raw ? JSON.parse(raw) : [];
+  const deposits = readJson<any[]>(DEPOSITS_KEY, []);
   const exists = deposits.some(
     (d) => d.userId === SPECIAL_ID && d.id === 'dep-special-trade007-init'
   );
@@ -122,47 +135,37 @@ const seedDeposit = () => {
 };
 
 const seedTrades = () => {
-  const raw = localStorage.getItem(TRADES_KEY);
-  const allTrades: Trade[] = raw ? JSON.parse(raw) : [];
+  const allTrades = readJson<Trade[]>(TRADES_KEY, []);
 
-  // Wipe any pre-existing trades for this user, then re-seed
-  const others = allTrades.filter((t) => t.userId !== SPECIAL_ID);
+  // Drop any pre-existing seeded trades for this user, keep everything else
+  const others = allTrades.filter(
+    (t) => t.userId !== SPECIAL_ID || !t.id.startsWith('special-trade-')
+  );
 
-  const rand = seededRandom(0xC0DE7007);
+  const rand = seededRandom(0xc0de7007);
 
-  // Build win/loss pattern of length 180:
-  //   - last 66 trades (most recent) must all be wins -> streak = 66
-  //   - remaining 114 trades hold the 4 losses + 110 wins, shuffled deterministically
-  const totalWins = SPECIAL_WINS;       // 176
-  const totalLosses = SPECIAL_LOSSES;   // 4
-  const streak = SPECIAL_STREAK;        // 66
+  const totalWins = SPECIAL_WINS;
+  const totalLosses = SPECIAL_LOSSES;
+  const streak = SPECIAL_STREAK;
   const earlyCount = SPECIAL_TOTAL_TRADES - streak; // 114
 
-  // Early portion: 110 wins + 4 losses
-  const earlyPattern: ('won' | 'lost')[] = [];
-  for (let i = 0; i < earlyCount; i++) earlyPattern.push('won');
-  // Place 4 losses at deterministic positions within the early window.
-  // The LAST loss must sit at the final slot of the early window so that the
-  // 66-trade winning block immediately follows it -> streak = exactly 66.
+  // Early portion (chronologically first): 110 wins + 4 losses.
+  // The LAST loss sits at the final slot so the 66-trade winning block
+  // immediately follows it — making the win-streak exactly 66.
+  const earlyPattern: ('won' | 'lost')[] = Array(earlyCount).fill('won');
   const lossSlots = [12, 41, 73, earlyCount - 1].slice(0, totalLosses);
   lossSlots.forEach((slot) => {
     if (slot >= 0 && slot < earlyPattern.length) earlyPattern[slot] = 'lost';
   });
-  // Recent portion: all wins
   const recentPattern: ('won' | 'lost')[] = Array(streak).fill('won');
   const pattern = [...earlyPattern, ...recentPattern];
 
-  // Sanity counts
   const winsInPattern = pattern.filter((p) => p === 'won').length;
   const lossesInPattern = pattern.filter((p) => p === 'lost').length;
-  if (winsInPattern !== totalWins || lossesInPattern !== totalLosses) {
-    // shouldn't happen, but bail out safely
-    return;
-  }
+  if (winsInPattern !== totalWins || lossesInPattern !== totalLosses) return;
 
-  // Generate trades, oldest first; latest trade timestamp = ~5 minutes ago
   const newest = Date.now() - 5 * 60 * 1000;
-  const stepMs = 1000 * 60 * 22; // ~22 minutes between trades -> spans ~66 hours
+  const stepMs = 1000 * 60 * 22; // ~22 minutes between trades
 
   const synthetic: Trade[] = pattern.map((status, i) => {
     const pair = PAIRS[Math.floor(rand() * PAIRS.length)];
@@ -177,11 +180,13 @@ const seedTrades = () => {
     const won = status === 'won';
     let exitPrice: number;
     if (direction === 'up') {
-      exitPrice = won ? +(entryPrice + movement).toFixed(pair.decimals)
-                       : +(entryPrice - movement).toFixed(pair.decimals);
+      exitPrice = won
+        ? +(entryPrice + movement).toFixed(pair.decimals)
+        : +(entryPrice - movement).toFixed(pair.decimals);
     } else {
-      exitPrice = won ? +(entryPrice - movement).toFixed(pair.decimals)
-                       : +(entryPrice + movement).toFixed(pair.decimals);
+      exitPrice = won
+        ? +(entryPrice - movement).toFixed(pair.decimals)
+        : +(entryPrice + movement).toFixed(pair.decimals);
     }
 
     const profit = won ? +(amount * (PROFIT_PERCENT / 100)).toFixed(2) : -amount;
@@ -205,26 +210,28 @@ const seedTrades = () => {
     };
   });
 
-  // Newest trade first, matching how addTrade prepends
+  // Newest first to match the way addTrade prepends
   synthetic.reverse();
 
-  const merged = [...synthetic, ...others];
-  localStorage.setItem(TRADES_KEY, JSON.stringify(merged));
+  // Remove any prior special trades, then push synthetic + others
+  localStorage.setItem(TRADES_KEY, JSON.stringify([...synthetic, ...others]));
 };
 
-export const seedSpecialAccount = async () => {
+/**
+ * Synchronous seeder — safe to call before React mounts.
+ * Idempotent: full seed happens once, then only the user record is
+ * kept up to date so the user keeps their progress.
+ */
+export const seedSpecialAccountSync = () => {
   try {
-    if (localStorage.getItem(SEED_FLAG) === '1') {
-      // Still ensure the user exists & has the right credentials/balance,
-      // but skip recreating trades & deposits.
-      await ensureUser();
-      return;
+    const seeded = localStorage.getItem(SEED_FLAG) === '1';
+    ensureUser(!seeded);
+    if (!seeded) {
+      seedDeposit();
+      seedTrades();
+      localStorage.setItem(SEED_FLAG, '1');
     }
-    await ensureUser();
-    seedDeposit();
-    seedTrades();
-    localStorage.setItem(SEED_FLAG, '1');
   } catch {
-    // best-effort
+    // best effort
   }
 };
