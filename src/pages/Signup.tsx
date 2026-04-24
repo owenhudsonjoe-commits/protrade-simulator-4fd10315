@@ -23,17 +23,10 @@ const Signup = () => {
     if (!country) { toast.error('Please select your country'); return; }
     setLoading(true);
     try {
-      const { needsVerification } = await signup(fullName, email, password, country);
-      if (needsVerification) {
-        toast.success('Check your email for the 6-digit verification code.');
-        navigate('/verify-email', { state: { email: email.trim().toLowerCase() } });
-      } else {
-        toast.success('Account created! Deposit funds to start trading.');
-        navigate('/deposit');
-      }
+      await signup(fullName, email, password, country);
+      navigate('/account-creating', { state: { email: email.trim().toLowerCase() } });
     } catch (err: any) {
       toast.error(err.message);
-    } finally {
       setLoading(false);
     }
   };

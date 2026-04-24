@@ -6,6 +6,8 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { TradeProvider } from "@/contexts/TradeContext";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import AccountCreating from "./pages/AccountCreating";
+import Profile from "./pages/Profile";
 import VerifyEmail from "./pages/VerifyEmail";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -40,7 +42,9 @@ const AppRoutes = () => (
     <Route path="/index" element={<Navigate to="/trade" replace />} />
     <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
     <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+    <Route path="/account-creating" element={<AccountCreating />} />
     <Route path="/verify-email" element={<VerifyEmail />} />
+    <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
     <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
     <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="/trade" element={<ProtectedRoute><Trade /></ProtectedRoute>} />

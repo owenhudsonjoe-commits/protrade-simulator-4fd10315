@@ -1,13 +1,12 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BarChart3, Wallet, ArrowDownToLine, ArrowUpFromLine, History, Shield } from 'lucide-react';
+import { BarChart3, Wallet, History, User, Shield } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
   { path: '/trade', icon: BarChart3, label: 'Trade' },
   { path: '/history', icon: History, label: 'History' },
-  { path: '/deposit', icon: ArrowDownToLine, label: 'Deposit' },
-  { path: '/withdraw', icon: ArrowUpFromLine, label: 'Withdraw' },
   { path: '/wallet', icon: Wallet, label: 'Wallet' },
+  { path: '/profile', icon: User, label: 'Profile' },
 ];
 
 const BottomNav = () => {

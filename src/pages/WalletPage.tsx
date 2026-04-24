@@ -2,12 +2,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTrades } from '@/contexts/TradeContext';
 import BottomNav from '@/components/BottomNav';
 import PerformanceStats from '@/components/PerformanceStats';
-import { Wallet, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import { Wallet, TrendingUp, TrendingDown, DollarSign, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 
 const WalletPage = () => {
   const { user } = useAuth();
   const { trades } = useTrades();
+  const navigate = useNavigate();
   const balance = user?.balance || 0;
   
   const myTrades = trades.filter((t) => t.userId === user?.id && t.status !== 'active');
@@ -48,6 +50,35 @@ const WalletPage = () => {
             <p className="text-xs text-muted-foreground mt-2">Deposit funds to start trading</p>
           )}
         </motion.div>
+
+        {/* Deposit / Withdraw quick actions */}
+        <div className="grid grid-cols-2 gap-3">
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => navigate('/deposit')}
+            className="h-14 rounded-xl font-semibold text-black flex items-center justify-center gap-2"
+            style={{
+              background: 'linear-gradient(135deg, #00e676 0%, #00b248 100%)',
+              boxShadow: '0 0 24px rgba(0,230,118,0.25)',
+            }}
+          >
+            <ArrowDownToLine className="w-5 h-5" />
+            Deposit
+          </motion.button>
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => navigate('/withdraw')}
+            className="h-14 rounded-xl font-semibold text-white border border-white/15 bg-white/[0.04] hover:bg-white/[0.07] flex items-center justify-center gap-2 transition-colors"
+          >
+            <ArrowUpFromLine className="w-5 h-5" />
+            Withdraw
+          </motion.button>
+        </div>
 
         {/* Stats grid */}
         <div className="grid grid-cols-2 gap-3">
