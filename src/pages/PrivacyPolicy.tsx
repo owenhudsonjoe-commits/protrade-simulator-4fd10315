@@ -70,15 +70,7 @@ const PrivacyPolicy = () => {
             </ul>
           </Section>
 
-          <Section title="2. Where Your Data Is Stored">
-            <p>
-              FXonix is a client-side application. Your account, trades and balance are stored
-              locally in your browser using <span className="font-mono text-white/85">localStorage</span>.
-              Clearing your browser data will remove your account from this device.
-            </p>
-          </Section>
-
-          <Section title="3. How We Use Your Information">
+          <Section title="2. How We Use Your Information">
             <ul className="list-disc pl-5 space-y-1">
               <li>To create and secure your account.</li>
               <li>To execute and record your trades and wallet activity.</li>
@@ -88,7 +80,7 @@ const PrivacyPolicy = () => {
             </ul>
           </Section>
 
-          <Section title="4. Sharing of Information">
+          <Section title="3. Sharing of Information">
             <p>
               We do not sell your personal information. Information is only shared when required
               to operate the service, comply with the law, or protect the rights and safety of
@@ -96,7 +88,7 @@ const PrivacyPolicy = () => {
             </p>
           </Section>
 
-          <Section title="5. Security">
+          <Section title="4. Security">
             <p>
               Passwords are stored as one-way SHA-256 hashes. We use modern web security
               practices to protect your data, but no method of electronic storage is 100% secure.
@@ -104,7 +96,7 @@ const PrivacyPolicy = () => {
             </p>
           </Section>
 
-          <Section title="6. Your Rights">
+          <Section title="5. Your Rights">
             <p>
               You may access, update or delete your account information at any time from your
               Profile. You can also contact us to request data removal or to ask any
@@ -112,7 +104,7 @@ const PrivacyPolicy = () => {
             </p>
           </Section>
 
-          <Section title="7. Children's Privacy">
+          <Section title="6. Children's Privacy">
             <p>
               FXonix is not directed to anyone under 18. We do not knowingly collect personal
               information from minors. If you believe a minor has provided us data, please
@@ -120,7 +112,7 @@ const PrivacyPolicy = () => {
             </p>
           </Section>
 
-          <Section title="8. Risk Disclosure">
+          <Section title="7. Risk Disclosure">
             <p>
               Trading involves substantial risk and may not be suitable for every investor. Past
               performance does not guarantee future results. Only trade with funds you can
@@ -128,7 +120,7 @@ const PrivacyPolicy = () => {
             </p>
           </Section>
 
-          <Section title="9. Changes to This Policy">
+          <Section title="8. Changes to This Policy">
             <p>
               We may update this Privacy Policy from time to time. Material changes will be
               communicated through the app. The "Last updated" date at the top reflects the
@@ -136,7 +128,7 @@ const PrivacyPolicy = () => {
             </p>
           </Section>
 
-          <Section title="10. Contact Us">
+          <Section title="9. Contact Us">
             <p>
               For privacy questions or requests, email us at{' '}
               <a
