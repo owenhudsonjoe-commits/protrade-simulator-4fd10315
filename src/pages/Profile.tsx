@@ -14,6 +14,8 @@ import {
   ChevronRight,
   Bell,
   KeyRound,
+  ShieldCheck,
+  MessageCircle,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
@@ -158,6 +160,21 @@ const Profile = () => {
               accent
             />
           )}
+        </motion.div>
+
+        {/* Support & Legal */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="rounded-2xl border border-white/10 overflow-hidden"
+          style={{ background: 'rgba(255,255,255,0.035)', backdropFilter: 'blur(24px)' }}
+        >
+          <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest px-5 pt-4 pb-2">
+            Support & Legal
+          </p>
+          <ActionRow icon={MessageCircle} label="Contact Us" onClick={() => navigate('/contact')} />
+          <ActionRow icon={ShieldCheck} label="Privacy Policy" onClick={() => navigate('/privacy')} />
         </motion.div>
 
         {/* Logout */}

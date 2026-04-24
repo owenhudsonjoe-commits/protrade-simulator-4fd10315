@@ -18,6 +18,8 @@ import DepositPage from "./pages/DepositPage";
 import WithdrawPage from "./pages/WithdrawPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import AdminPanel from "./pages/AdminPanel";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -54,6 +56,8 @@ const AppRoutes = () => (
     <Route path="/withdraw" element={<ProtectedRoute><WithdrawPage /></ProtectedRoute>} />
     <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
     <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
+    <Route path="/privacy" element={<PrivacyPolicy />} />
+    <Route path="/contact" element={<Contact />} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
