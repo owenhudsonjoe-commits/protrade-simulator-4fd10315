@@ -1,9 +1,10 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BarChart3, Wallet, History, User, Shield } from 'lucide-react';
+import { BarChart3, Wallet, History, User, Shield, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
   { path: '/trade', icon: BarChart3, label: 'Trade' },
+  { path: '/markets', icon: TrendingUp, label: 'Markets' },
   { path: '/history', icon: History, label: 'History' },
   { path: '/wallet', icon: Wallet, label: 'Wallet' },
   { path: '/profile', icon: User, label: 'Profile' },

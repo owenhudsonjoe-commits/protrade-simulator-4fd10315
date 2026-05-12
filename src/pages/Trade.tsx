@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useBinanceWebSocket, TRADING_PAIRS } from '@/hooks/useBinanceWebSocket';
 import type { MarketTicker } from '@/hooks/useBinanceWebSocket';
 import LiveTradingChart from '@/components/LiveTradingChart';
@@ -18,7 +19,12 @@ const timeframes = ['1m', '5m', '15m', '1h'];
 const Trade = () => {
   const { user, logout } = useAuth();
   const { activeTrades } = useTrades();
-  const [selectedSymbol, setSelectedSymbol] = useState('XAUUSD');
+  const [searchParams] = useSearchParams();
+  const initialSymbol = (() => {
+    const s = searchParams.get('symbol')?.toUpperCase();
+    return s && TRADING_PAIRS.find((p) => p.symbol === s) ? s : 'XAUUSD';
+  })();
+  const [selectedSymbol, setSelectedSymbol] = useState(initialSymbol);
   const [showAssetSelector, setShowAssetSelector] = useState(false);
   const [allTickers, setAllTickers] = useState<Record<string, MarketTicker>>({});
   const [activeIndicators, setActiveIndicators] = useState<string[]>(['MA7', 'MA25']);

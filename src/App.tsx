@@ -20,6 +20,7 @@ import NotificationsPage from "./pages/NotificationsPage";
 import AdminPanel from "./pages/AdminPanel";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Contact from "./pages/Contact";
+import MarketsPage from "./pages/MarketsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,7 @@ const AppRoutes = () => (
     <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
     <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
     <Route path="/reset-password" element={<ResetPassword />} />
+    <Route path="/markets" element={<ProtectedRoute><MarketsPage /></ProtectedRoute>} />
     <Route path="/trade" element={<ProtectedRoute><Trade /></ProtectedRoute>} />
     <Route path="/history" element={<ProtectedRoute><TradeHistory /></ProtectedRoute>} />
     <Route path="/wallet" element={<ProtectedRoute><WalletPage /></ProtectedRoute>} />
