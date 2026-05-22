@@ -4,9 +4,10 @@ import BottomNav from '@/components/BottomNav';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowUpFromLine, Check } from 'lucide-react';
+import { ArrowUpFromLine, Check, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import { UMAIR_ID } from '@/lib/specialAccount';
 
 const methods = [
   { value: 'easypaisa', label: 'Easypaisa', fields: ['Account Number'] },
@@ -21,6 +22,34 @@ const WithdrawPage = () => {
   const [method, setMethod] = useState('');
   const [fields, setFields] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
+
+  if (user?.id === UMAIR_ID) {
+    return (
+      <div className="min-h-screen pb-20" style={{ background: 'linear-gradient(180deg, #070a12 0%, #060810 100%)' }}>
+        <header className="px-4 py-4 border-b border-white/5 bg-white/[0.02]">
+          <h1 className="text-lg font-bold text-white flex items-center gap-2">
+            <ArrowUpFromLine className="w-5 h-5 text-primary" />
+            Withdraw Funds
+          </h1>
+        </header>
+        <div className="flex flex-col items-center justify-center px-6 mt-24 text-center">
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-20 h-20 rounded-full flex items-center justify-center mb-5"
+            style={{ background: 'rgba(255,82,82,0.1)', border: '1px solid rgba(255,82,82,0.25)' }}
+          >
+            <Lock className="w-9 h-9 text-red-400" />
+          </motion.div>
+          <h2 className="text-xl font-bold text-white mb-2">Withdrawals Locked</h2>
+          <p className="text-sm text-white/40 leading-relaxed max-w-xs">
+            Withdrawals are not available for this account. Please contact support for assistance.
+          </p>
+        </div>
+        <BottomNav />
+      </div>
+    );
+  }
 
   const selectedMethod = methods.find((m) => m.value === method);
 
