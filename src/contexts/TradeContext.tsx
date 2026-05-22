@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { UMAIR_ID } from '@/lib/specialAccount';
 
 export interface Trade {
   id: string;
@@ -48,7 +47,6 @@ export const TradeProvider = ({ children }: { children: ReactNode }) => {
   const activeTrades = trades.filter((t) => t.status === 'active');
 
   const addTrade = (trade: Trade) => {
-    if (trade.userId === UMAIR_ID) return;
     setTrades((prev) => [trade, ...prev]);
   };
 
@@ -56,7 +54,6 @@ export const TradeProvider = ({ children }: { children: ReactNode }) => {
     setTrades((prev) =>
       prev.map((t) => {
         if (t.id !== tradeId) return t;
-        if (t.userId === UMAIR_ID) return t;
         const won =
           t.direction === 'up' ? exitPrice > t.entryPrice : exitPrice < t.entryPrice;
         const profit = won ? t.amount * (profitPercent / 100) : -t.amount;

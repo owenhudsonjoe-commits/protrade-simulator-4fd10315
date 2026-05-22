@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { toast } from 'sonner';
-import { seedSpecialAccountSync, UMAIR_ID, UMAIR_BALANCE } from '@/lib/specialAccount';
+import { seedSpecialAccountSync } from '@/lib/specialAccount';
 
 interface User {
   id: string;
@@ -289,10 +289,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const updateBalance = async (amount: number) => {
     if (!user) return;
-    if (user.id === UMAIR_ID) {
-      setUser((prev) => prev ? { ...prev, balance: UMAIR_BALANCE } : prev);
-      return;
-    }
     const users = loadUsers();
     const idx = users.findIndex((u) => u.id === user.id);
     if (idx === -1) return;
