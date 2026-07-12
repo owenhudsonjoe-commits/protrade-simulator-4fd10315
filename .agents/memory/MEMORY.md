@@ -1,0 +1,1 @@
+- [npm package firewall blocks](npm-package-firewall.md) — a pinned dependency version can be blocked by Replit's Socket security policy (CVE); bump to a newer patch, don't try to force-install.
