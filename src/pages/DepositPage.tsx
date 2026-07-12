@@ -7,16 +7,29 @@ import { ArrowDownToLine, Upload, Check, Copy, ScanLine, QrCode, AlertTriangle, 
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import Tesseract from 'tesseract.js';
-import qr50 from '@/assets/qr-50.png';
-import qr100 from '@/assets/qr-100.png';
 
 const USD_TO_PKR = 278.5;
 
 const plans = [
+  { usd: 10, label: '$10' },
+  { usd: 20, label: '$20' },
+  { usd: 30, label: '$30' },
   { usd: 50, label: '$50' },
   { usd: 100, label: '$100' },
-  { usd: 0, label: 'Custom' },
-];
+  { usd: 0, label: 'Custom', isCustom: true },
+] as const;
+
+const MIN_DEPOSIT_USD = 10;
+
+// QR code image for each fixed deposit amount. New QR codes uploaded by the
+// admin should be dropped into src/assets and mapped here (e.g. qr10: qr10Image).
+const AMOUNT_QR_MAP: Record<number, string | undefined> = {
+  10: undefined,
+  20: undefined,
+  30: undefined,
+  50: undefined,
+  100: undefined,
+};
 
 const EASYPAISA_ACCOUNT = '03703770146';
 
@@ -44,8 +57,10 @@ const DepositPage = () => {
   const autoApproveLock = useRef(false);
 
   const isPakistan = user?.country === 'Pakistan';
-  const amount = selectedPlan === 2 ? Number(customAmount) : plans[selectedPlan ?? 0]?.usd || 0;
+  const isCustom = selectedPlan !== null && plans[selectedPlan]?.isCustom;
+  const amount = isCustom ? Number(customAmount) : plans[selectedPlan ?? -1]?.usd || 0;
   const pkrAmount = Math.round(amount * USD_TO_PKR);
+  const qrForAmount = !isCustom && amount > 0 ? AMOUNT_QR_MAP[amount] : undefined;
 
   useEffect(() => {
     if (!user) return;
@@ -187,7 +202,7 @@ const DepositPage = () => {
 
   const handleSubmit = () => {
     if (amount <= 0) return toast.error('Select a valid plan');
-    if (selectedPlan === 2 && amount < 50) return toast.error('Custom deposits must be $50 or more');
+    if (isCustom && amount < MIN_DEPOSIT_USD) return toast.error(`Custom deposits must be ${MIN_DEPOSIT_USD} or more`);
     if (isPakistan && !screenshot) return toast.error('Please upload payment screenshot');
     if (ocr.status === 'processing') return toast.error('Wait for verification to finish');
 
@@ -287,7 +302,7 @@ const DepositPage = () => {
             ))}
           </div>
 
-          {selectedPlan === 2 && (
+          {isCustom && (
             <div className="mt-3">
               <Input
                 type="number"
@@ -297,7 +312,7 @@ const DepositPage = () => {
                 className="bg-muted border-border"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Below $50 is not available. Please make your deposit $50 or above.
+                Below ${MIN_DEPOSIT_USD} is not available. Please make your deposit ${MIN_DEPOSIT_USD} or above.
               </p>
               {isPakistan && customAmount && (
                 <p className="text-xs text-muted-foreground mt-1">
@@ -320,19 +335,35 @@ const DepositPage = () => {
                 <QrCode className="w-4 h-4 text-primary" />
                 Scan to Deposit
               </h3>
-              <span className="text-[10px] px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/30">
-                LIVE QR
-              </span>
+              {qrForAmount && (
+                <span className="text-[10px] px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/30">
+                  LIVE QR
+                </span>
+              )}
             </div>
 
-            <div className="flex flex-col items-center bg-white rounded-xl p-4">
-              <img
-                src={selectedPlan === 0 ? qr50 : qr100}
-                alt={`Easypaisa QR for PKR ${pkrAmount}`}
-                className="w-52 h-52 object-contain"
-                draggable={false}
-              />
-            </div>
+            {qrForAmount ? (
+              <div className="flex flex-col items-center bg-white rounded-xl p-4">
+                <img
+                  src={qrForAmount}
+                  alt={`Easypaisa QR for PKR ${pkrAmount}`}
+                  className="w-52 h-52 object-contain"
+                  draggable={false}
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-xl p-6 text-center">
+                <QrCode className="w-8 h-8 text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  {isCustom
+                    ? 'QR code for custom amounts is coming soon.'
+                    : `QR code for ${amount} is coming soon.`}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Send payment to the Easypaisa account below, then upload your receipt.
+                </p>
+              </div>
+            )}
 
             <div className="space-y-2 mt-3">
               <div className="bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 rounded-lg p-3 text-center">
@@ -351,6 +382,23 @@ const DepositPage = () => {
                   {copied === 'Amount' ? 'Copied!' : 'Copy amount'}
                 </button>
               </div>
+
+              {!qrForAmount && (
+                <div className="bg-muted border border-border rounded-lg p-3 text-center">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                    Easypaisa Account
+                  </p>
+                  <p className="text-lg font-bold font-mono text-foreground">
+                    {EASYPAISA_ACCOUNT}
+                  </p>
+                  <button
+                    onClick={() => handleCopy(EASYPAISA_ACCOUNT, 'Account')}
+                    className="text-[10px] text-primary mt-1 underline"
+                  >
+                    {copied === 'Account' ? 'Copied!' : 'Copy account number'}
+                  </button>
+                </div>
+              )}
             </div>
           </motion.div>
         )}
