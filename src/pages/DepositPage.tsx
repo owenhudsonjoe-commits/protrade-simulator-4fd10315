@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import Tesseract from 'tesseract.js';
 import qr10 from '@/assets/qr-10.png';
+import qr20 from '@/assets/qr-20.png';
 
 const USD_TO_PKR = 278.5;
 
@@ -26,7 +27,7 @@ const MIN_DEPOSIT_USD = 10;
 // admin should be dropped into src/assets and mapped here (e.g. qr10: qr10Image).
 const AMOUNT_QR_MAP: Record<number, string | undefined> = {
   10: qr10,
-  20: undefined,
+  20: qr20,
   30: undefined,
   50: undefined,
   100: undefined,
