@@ -11,6 +11,7 @@ import qr10 from '@/assets/qr-10.png';
 import qr20 from '@/assets/qr-20.png';
 import qr30 from '@/assets/qr-30.png';
 import qr50 from '@/assets/qr-50.png';
+import qr100 from '@/assets/qr-100.png';
 
 const USD_TO_PKR = 278.5;
 
@@ -32,8 +33,11 @@ const AMOUNT_QR_MAP: Record<number, string | undefined> = {
   20: qr20,
   30: qr30,
   50: qr50,
-  100: undefined,
+  100: qr100,
 };
+
+// QR code shown for custom (user-entered) deposit amounts.
+const CUSTOM_QR: string | undefined = qr100;
 
 const EASYPAISA_ACCOUNT = '03703770146';
 
@@ -64,7 +68,7 @@ const DepositPage = () => {
   const isCustom = selectedPlan !== null && plans[selectedPlan]?.isCustom;
   const amount = isCustom ? Number(customAmount) : plans[selectedPlan ?? -1]?.usd || 0;
   const pkrAmount = Math.round(amount * USD_TO_PKR);
-  const qrForAmount = !isCustom && amount > 0 ? AMOUNT_QR_MAP[amount] : undefined;
+  const qrForAmount = amount > 0 ? (isCustom ? CUSTOM_QR : AMOUNT_QR_MAP[amount]) : undefined;
 
   useEffect(() => {
     if (!user) return;
