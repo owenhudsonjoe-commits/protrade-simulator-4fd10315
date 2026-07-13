@@ -10,6 +10,7 @@ import Tesseract from 'tesseract.js';
 import qr10 from '@/assets/qr-10.png';
 import qr20 from '@/assets/qr-20.png';
 import qr30 from '@/assets/qr-30.png';
+import qr50 from '@/assets/qr-50.png';
 
 const USD_TO_PKR = 278.5;
 
@@ -30,7 +31,7 @@ const AMOUNT_QR_MAP: Record<number, string | undefined> = {
   10: qr10,
   20: qr20,
   30: qr30,
-  50: undefined,
+  50: qr50,
   100: undefined,
 };
 
