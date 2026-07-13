@@ -368,7 +368,7 @@ const DepositPage = () => {
                     : `QR code for ${amount} is coming soon.`}
                 </p>
                 <p className="text-[11px] text-muted-foreground mt-1">
-                  Send payment to the Easypaisa account below, then upload your receipt.
+                  Scan the QR code once it's added, then upload your receipt.
                 </p>
               </div>
             )}
@@ -391,22 +391,6 @@ const DepositPage = () => {
                 </button>
               </div>
 
-              {!qrForAmount && (
-                <div className="bg-muted border border-border rounded-lg p-3 text-center">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
-                    Easypaisa Account
-                  </p>
-                  <p className="text-lg font-bold font-mono text-foreground">
-                    {EASYPAISA_ACCOUNT}
-                  </p>
-                  <button
-                    onClick={() => handleCopy(EASYPAISA_ACCOUNT, 'Account')}
-                    className="text-[10px] text-primary mt-1 underline"
-                  >
-                    {copied === 'Account' ? 'Copied!' : 'Copy account number'}
-                  </button>
-                </div>
-              )}
             </div>
           </motion.div>
         )}
