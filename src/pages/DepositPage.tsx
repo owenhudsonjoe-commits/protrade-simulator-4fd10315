@@ -7,11 +7,7 @@ import { ArrowDownToLine, Upload, Check, Copy, ScanLine, QrCode, AlertTriangle, 
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import Tesseract from 'tesseract.js';
-import qr10 from '@/assets/qr-10.png';
-import qr20 from '@/assets/qr-20.png';
-import qr30 from '@/assets/qr-30.png';
-import qr50 from '@/assets/qr-50.png';
-import qr100 from '@/assets/qr-100.png';
+import depositQr from '@/assets/deposit-qr.jpeg';
 
 const USD_TO_PKR = 278.5;
 
@@ -25,19 +21,6 @@ const plans = [
 ] as const;
 
 const MIN_DEPOSIT_USD = 10;
-
-// QR code image for each fixed deposit amount. New QR codes uploaded by the
-// admin should be dropped into src/assets and mapped here (e.g. qr10: qr10Image).
-const AMOUNT_QR_MAP: Record<number, string | undefined> = {
-  10: qr10,
-  20: qr20,
-  30: qr30,
-  50: qr50,
-  100: qr100,
-};
-
-// QR code shown for custom (user-entered) deposit amounts.
-const CUSTOM_QR: string | undefined = qr100;
 
 const EASYPAISA_ACCOUNT = '03703770146';
 
@@ -68,7 +51,7 @@ const DepositPage = () => {
   const isCustom = selectedPlan !== null && plans[selectedPlan]?.isCustom;
   const amount = isCustom ? Number(customAmount) : plans[selectedPlan ?? -1]?.usd || 0;
   const pkrAmount = Math.round(amount * USD_TO_PKR);
-  const qrForAmount = amount > 0 ? (isCustom ? CUSTOM_QR : AMOUNT_QR_MAP[amount]) : undefined;
+  const qrForAmount = amount > 0 ? depositQr : undefined;
 
   useEffect(() => {
     if (!user) return;

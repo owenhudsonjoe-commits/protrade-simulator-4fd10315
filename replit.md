@@ -56,9 +56,8 @@ Run the existing tests with `pnpm test`. The imported test suite currently conta
 
 ## Deposit Flow (Pakistan)
 - Fixed deposit tiers: $10, $20, $30, $50, $100, plus a Custom amount (min $10).
-- Each tier can have its own Easypaisa QR code image. QR images live in `src/pages/DepositPage.tsx` via `AMOUNT_QR_MAP` (keyed by USD amount) — currently all `undefined` (old QR codes were removed) since new ones are pending upload. Until a QR is set for an amount, the UI shows a "QR code coming soon" placeholder with the Easypaisa account number instead.
-- To wire in a new QR: add the image to `src/assets`, import it in `DepositPage.tsx`, and set the matching entry in `AMOUNT_QR_MAP`.
-- Screenshot upload + OCR verification (Tesseract.js) works the same for every tier, independent of whether a QR image exists.
+- The same Easypaisa QR image (`src/assets/deposit-qr.jpeg`) is shown for all fixed and custom deposit amounts.
+- Screenshot upload + OCR verification (Tesseract.js) works the same for every tier.
 
 ## Migration Notes (Lovable → Replit)
 - Removed `lovable-tagger` from vite.config.ts (dev-only Lovable plugin)
