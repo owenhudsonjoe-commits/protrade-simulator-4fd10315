@@ -35,16 +35,24 @@ Sign-up and password-reset use a 6-digit OTP that's displayed on screen via a to
 - Password: `admin123`
 
 ## Running the App
+Use Node.js 24 (matching `package.json`) and pnpm 10.26.1. Dependencies are installed with the existing pnpm lockfile:
+```bash
+pnpm install --frozen-lockfile
+```
+
+In Replit, click **Run** to start the configured `Start application` workflow:
 ```bash
 npm run dev
 ```
-Runs on port 5000.
+Runs on `0.0.0.0:5000`, with Replit's preview hosts allowed. No secrets or external services are needed for the browser-only demo. Accounts, balances, and trades are local to each browser; this setup is not suitable for real-money trading.
 
 ## Build
 ```bash
 npm run build
 ```
 Outputs to `dist/`.
+
+Run the existing tests with `pnpm test`. The imported test suite currently contains only a basic example test, not coverage of trading or authentication.
 
 ## Deposit Flow (Pakistan)
 - Fixed deposit tiers: $10, $20, $30, $50, $100, plus a Custom amount (min $10).
