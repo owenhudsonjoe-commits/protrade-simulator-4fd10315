@@ -7,7 +7,7 @@ import { ArrowDownToLine, Upload, Check, Copy, ScanLine, QrCode, AlertTriangle, 
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import Tesseract from 'tesseract.js';
-import depositQr from '@/assets/deposit-qr.jpeg';
+import singleUnifiedQr from '@/assets/deposit-qr.jpeg';
 
 const USD_TO_PKR = 278.5;
 
@@ -51,7 +51,7 @@ const DepositPage = () => {
   const isCustom = selectedPlan !== null && plans[selectedPlan]?.isCustom;
   const amount = isCustom ? Number(customAmount) : plans[selectedPlan ?? -1]?.usd || 0;
   const pkrAmount = Math.round(amount * USD_TO_PKR);
-  const qrForAmount = amount > 0 ? depositQr : undefined;
+  const qrForAmount = amount > 0 ? singleUnifiedQr : null;
 
   useEffect(() => {
     if (!user) return;
@@ -343,15 +343,13 @@ const DepositPage = () => {
                 />
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-xl p-6 text-center">
-                <QrCode className="w-8 h-8 text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  {isCustom
-                    ? 'QR code for custom amounts is coming soon.'
-                    : `QR code for ${amount} is coming soon.`}
+              <div className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-xl p-6 text-center bg-surface-2/40">
+                <QrCode className="w-10 h-10 text-muted-foreground/60 mb-2" />
+                <p className="text-sm font-semibold text-foreground">
+                  QR Code Expired / Removed
                 </p>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Scan the QR code once it's added, then upload your receipt.
+                <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+                  All previous expired QR codes have been removed. Provide the new QR code to attach it to all deposit tiers ($10 to Custom).
                 </p>
               </div>
             )}

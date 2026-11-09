@@ -1,0 +1,8 @@
+{
+  "name": "FXonix - Professional Trading Platform",
+  "description": "Trade with confidence on FXonix. Real-time charts, live market data, and instant execution.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
