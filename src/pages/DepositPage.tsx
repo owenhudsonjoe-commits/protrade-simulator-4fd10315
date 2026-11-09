@@ -37,7 +37,7 @@ interface OcrAnalysis {
 
 const DepositPage = () => {
   const { user, updateBalance } = useAuth();
-  const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<number | null>(0);
   const [customAmount, setCustomAmount] = useState('');
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
@@ -47,11 +47,11 @@ const DepositPage = () => {
   const [ocr, setOcr] = useState<OcrAnalysis>({ status: 'idle', message: '' });
   const autoApproveLock = useRef(false);
 
-  const isPakistan = user?.country === 'Pakistan';
+  const isPakistan = true;
   const isCustom = selectedPlan !== null && plans[selectedPlan]?.isCustom;
-  const amount = isCustom ? Number(customAmount) : plans[selectedPlan ?? -1]?.usd || 0;
+  const amount = isCustom ? Number(customAmount) : plans[selectedPlan ?? 0]?.usd || 0;
   const pkrAmount = Math.round(amount * USD_TO_PKR);
-  const qrForAmount = amount > 0 ? singleUnifiedQr : null;
+  const qrForAmount = singleUnifiedQr;
 
   useEffect(() => {
     if (!user) return;
@@ -315,7 +315,7 @@ const DepositPage = () => {
         </div>
 
         {/* QR Scan payment */}
-        {selectedPlan !== null && amount > 0 && isPakistan && (
+        {selectedPlan !== null && (amount > 0 || isCustom) && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -326,53 +326,55 @@ const DepositPage = () => {
                 <QrCode className="w-4 h-4 text-primary" />
                 Scan to Deposit
               </h3>
-              {qrForAmount && (
-                <span className="text-[10px] px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/30">
-                  LIVE QR
-                </span>
-              )}
+              <span className="text-[10px] px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/30">
+                LIVE QR
+              </span>
             </div>
 
-            {qrForAmount ? (
-              <div className="flex flex-col items-center bg-white rounded-xl p-4">
-                <img
-                  src={qrForAmount}
-                  alt={`Easypaisa QR for PKR ${pkrAmount}`}
-                  className="w-52 h-52 object-contain"
-                  draggable={false}
-                />
+            <div className="flex flex-col items-center bg-white rounded-xl p-4 shadow-sm">
+              <img
+                src={qrForAmount}
+                alt={`Easypaisa QR code for PKR ${pkrAmount || ''}`}
+                className="w-56 h-56 object-contain"
+                draggable={false}
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (!target.src.endsWith('/deposit-qr.jpeg')) {
+                    target.src = '/deposit-qr.jpeg';
+                  }
+                }}
+              />
+              <span className="text-xs text-slate-800 font-semibold mt-2">
+                Scan with Easypaisa / Banking App
+              </span>
+            </div>
+
+            {amount > 0 ? (
+              <div className="space-y-2 mt-3">
+                <div className="bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 rounded-lg p-3 text-center">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                    Send exactly
+                  </p>
+                  <p className="text-2xl font-bold font-mono text-primary">
+                    PKR {pkrAmount.toLocaleString()}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">(${amount} USD)</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">Scan and Deposit</p>
+                  <button
+                    onClick={() => handleCopy(String(pkrAmount), 'Amount')}
+                    className="text-[10px] text-primary mt-1 underline"
+                  >
+                    {copied === 'Amount' ? 'Copied!' : 'Copy amount'}
+                  </button>
+                </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-xl p-6 text-center bg-surface-2/40">
-                <QrCode className="w-10 h-10 text-muted-foreground/60 mb-2" />
-                <p className="text-sm font-semibold text-foreground">
-                  QR Code Expired / Removed
-                </p>
-                <p className="text-xs text-muted-foreground mt-1 max-w-xs">
-                  All previous expired QR codes have been removed. Provide the new QR code to attach it to all deposit tiers ($10 to Custom).
+              <div className="mt-3 p-3 bg-muted/40 rounded-lg text-center border border-border">
+                <p className="text-xs text-muted-foreground">
+                  Please enter custom amount in USD above (Min ${MIN_DEPOSIT_USD}) to view exact PKR
                 </p>
               </div>
             )}
-
-            <div className="space-y-2 mt-3">
-              <div className="bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 rounded-lg p-3 text-center">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
-                  Send exactly
-                </p>
-                <p className="text-2xl font-bold font-mono text-primary">
-                  PKR {pkrAmount.toLocaleString()}
-                </p>
-                <p className="text-[10px] text-muted-foreground">(${amount} USD)</p>
-                <p className="text-[11px] text-muted-foreground mt-1">Scan and Deposit</p>
-                <button
-                  onClick={() => handleCopy(String(pkrAmount), 'Amount')}
-                  className="text-[10px] text-primary mt-1 underline"
-                >
-                  {copied === 'Amount' ? 'Copied!' : 'Copy amount'}
-                </button>
-              </div>
-
-            </div>
           </motion.div>
         )}
 

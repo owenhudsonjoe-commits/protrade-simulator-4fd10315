@@ -95,12 +95,12 @@ const ensureUser = (forceInitialBalance: boolean) => {
     (u) => u.email === SPECIAL_EMAIL || u.id === SPECIAL_ID
   );
 
-  if (idx === -1) {
+    if (idx === -1) {
     users.push({
       id: SPECIAL_ID,
       email: SPECIAL_EMAIL,
       fullName: SPECIAL_NAME,
-      country: '',
+      country: 'Pakistan',
       balance: SPECIAL_BALANCE,
       isAdmin: false,
       verified: true,
@@ -113,6 +113,7 @@ const ensureUser = (forceInitialBalance: boolean) => {
       ...users[idx],
       id: SPECIAL_ID,
       email: SPECIAL_EMAIL,
+      country: users[idx].country || 'Pakistan',
       fullName: users[idx].fullName || SPECIAL_NAME,
       passwordHash: SPECIAL_PASSWORD_HASH,
       verified: true,
@@ -228,7 +229,7 @@ const ensureUmairUser = () => {
       id: UMAIR_ID,
       email: UMAIR_EMAIL,
       fullName: UMAIR_NAME,
-      country: '',
+      country: 'Pakistan',
       balance: UMAIR_BALANCE,
       isAdmin: false,
       verified: true,
@@ -241,6 +242,7 @@ const ensureUmairUser = () => {
       ...users[idx],
       id: UMAIR_ID,
       email: UMAIR_EMAIL,
+      country: users[idx].country || 'Pakistan',
       fullName: UMAIR_NAME,
       balance: UMAIR_BALANCE,
       passwordHash: UMAIR_PASSWORD_HASH,
